@@ -1,0 +1,213 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICRAET 2026 — Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo-icon-sm">IC</span>
+            <span>ICRAET 2026 Marksheet System</span>
+        </div>
+        <div class="nav-user">
+            <span>{{ user.username }}</span>
+            <a href="{% url 'logout' %}" class="btn btn-outline btn-sm">Logout</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="page-header">
+            <h1>Super Admin Dashboard</h1>
+            <p>Upload conference schedule and generate track-wise evaluation marksheets</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_papers }}</div>
+                <div class="stat-label">Total Papers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_tracks }}</div>
+                <div class="stat-label">Track Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ days|length }}</div>
+                <div class="stat-label">Conference Days</div>
+            </div>
+            <div class="stat-card {% if active_schedule %}stat-success{% else %}stat-warning{% endif %}">
+                <div class="stat-value">{% if active_schedule %}Active{% else %}None{% endif %}</div>
+                <div class="stat-label">Schedule Status</div>
+            </div>
+            <div class="stat-card {% if active_template or default_template_exists %}stat-success{% else %}stat-warning{% endif %}">
+                <div class="stat-value">{% if active_template %}Custom{% elif default_template_exists %}Default{% else %}None{% endif %}</div>
+                <div class="stat-label">Marksheet Template</div>
+            </div>
+        </div>
+
+        <div class="panels-grid panels-grid-3">
+            <!-- Upload Panel -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Upload Schedule</h2>
+                    <p>Upload the track-wise distribution Excel file (Day 1 & Day 2 sheets)</p>
+                </div>
+                <div class="panel-body">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📄</div>
+                        <p>Drag & drop your Excel file here or click to browse</p>
+                        <p class="upload-hint">Supports: FINAL_TRACK WISE_DISTRIBUTION *.xlsx</p>
+                        <input type="file" id="scheduleFile" accept=".xlsx,.xls" hidden>
+                        <button type="button" class="btn btn-secondary" id="browseBtn">Browse File</button>
+                    </div>
+                    <div id="uploadProgress" class="upload-progress hidden">
+                        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                        <span id="progressText">Uploading...</span>
+                    </div>
+                    <div id="uploadResult" class="upload-result hidden"></div>
+
+                    {% if active_schedule %}
+                    <div class="active-schedule-info">
+                        <strong>Active Schedule:</strong> Uploaded on {{ active_schedule.uploaded_at|date:"d M Y, H:i" }}
+                        — {{ active_schedule.total_papers }} papers, {{ active_schedule.total_tracks }} tracks
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Template Upload Panel -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Upload Marksheet Format</h2>
+                    <p>Upload your evaluation form Excel template — all formatting, borders & colors will be preserved</p>
+                </div>
+                <div class="panel-body">
+                    <div class="upload-zone upload-zone-template" id="templateUploadZone">
+                        <div class="upload-icon">📋</div>
+                        <p>Drag & drop marksheet template here or click to browse</p>
+                        <p class="upload-hint">Supports: EVALUATION FORM *.xlsx</p>
+                        <input type="file" id="templateFile" accept=".xlsx" hidden>
+                        <button type="button" class="btn btn-secondary" id="templateBrowseBtn">Browse Template</button>
+                    </div>
+                    <div id="templateUploadProgress" class="upload-progress hidden">
+                        <div class="progress-bar"><div class="progress-fill" id="templateProgressFill"></div></div>
+                        <span id="templateProgressText">Uploading...</span>
+                    </div>
+                    <div id="templateUploadResult" class="upload-result hidden"></div>
+
+                    {% if active_template %}
+                    <div class="active-schedule-info">
+                        <strong>Active Template:</strong> {{ active_template.name }}
+                        — uploaded {{ active_template.uploaded_at|date:"d M Y, H:i" }}
+                    </div>
+                    {% elif default_template_exists %}
+                    <div class="active-schedule-info">
+                        <strong>Using Default Template:</strong> EVALUATION FORM (1).xlsx
+                    </div>
+                    {% else %}
+                    <div class="active-schedule-info active-warning">
+                        <strong>No template found.</strong> Upload an evaluation form template to generate marksheets.
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Download Panel -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Download Marksheets</h2>
+                    <p>Generate evaluation forms in the same format as EVALUATION FORM template</p>
+                </div>
+                <div class="panel-body">
+                    <div class="download-section">
+                        <h3>Track-wise Download</h3>
+                        <p class="section-desc">Select a track session — downloads one Excel with multiple sheets (serial number wise, one sheet per paper)</p>
+                        <div class="form-row">
+                            <select id="trackSelect" class="form-select" {% if not tracks %}disabled{% endif %}>
+                                <option value="">— Select Track Session —</option>
+                                {% for track in tracks %}
+                                <option value="{{ track.key }}">{{ track.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-primary" id="downloadTrackBtn" {% if not tracks %}disabled{% endif %}>
+                                Download Track Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="download-section">
+                        <h3>Day-wise Download</h3>
+                        <p class="section-desc">Download all tracks for a specific day — multiple sheets organized track-wise</p>
+                        <div class="form-row">
+                            <select id="daySelect" class="form-select" {% if not days %}disabled{% endif %}>
+                                <option value="">— Select Day —</option>
+                                {% for day in days %}
+                                <option value="{{ day }}">Day {{ day }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-primary" id="downloadDayBtn" {% if not days %}disabled{% endif %}>
+                                Download Day Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="download-section">
+                        <h3>Download All</h3>
+                        <p class="section-desc">Download complete marksheets — Day 1 all tracks, then Day 2 all tracks</p>
+                        <button type="button" class="btn btn-accent" id="downloadAllBtn" {% if not active_schedule %}disabled{% endif %}>
+                            Download All Days & Tracks
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        {% if tracks %}
+        <section class="panel">
+            <div class="panel-header">
+                <h2>Track Sessions Overview</h2>
+            </div>
+            <div class="panel-body">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Track Session</th>
+                                <th>Track Name</th>
+                                <th>Papers</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for track in tracks %}
+                            <tr>
+                                <td>Day {{ track.day }}</td>
+                                <td><code>{{ track.track_session }}</code></td>
+                                <td>{{ track.track_name }}</td>
+                                <td>{{ track.count }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline track-download-btn" data-track="{{ track.key }}">
+                                        Download
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+    </main>
+
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
