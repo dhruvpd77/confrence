@@ -129,20 +129,6 @@
                 <div><label>University</label><span>{{ paper.university|default:"—" }}</span></div>
                 <div><label>Mode</label><span>{{ paper.mode|default:"—" }}</span></div>
                 <div><label>Session Chair</label><span>{{ paper.session_chair|default:"—" }}</span></div>
-                {% if verifier_info %}
-                <div class="paper-card-verifier">
-                    <label>Verifier</label>
-                    <span class="verifier-cell">
-                        {{ verifier_info.name }}
-                        {% if verifier_info.phone_dial %}
-                        <a href="tel:{{ verifier_info.phone_dial }}" class="verifier-call-link verifier-call-link-sm" title="Call verifier">
-                            <span class="call-icon" aria-hidden="true">📞</span>
-                            {{ verifier_info.phone|default:verifier_info.phone_dial }}
-                        </a>
-                        {% endif %}
-                    </span>
-                </div>
-                {% endif %}
             </div>
             {% if track_locked %}
             <span class="btn btn-gold btn-full" style="opacity:0.5;pointer-events:none">Locked</span>
