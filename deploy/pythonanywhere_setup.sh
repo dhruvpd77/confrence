@@ -20,6 +20,13 @@ echo "==> Installing dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+if [ ! -f ".env" ]; then
+    echo "==> Creating .env from .env.example (edit DJANGO_SECRET_KEY before going live)..."
+    cp .env.example .env
+    SECRET=$(python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
+    sed -i "s/replace-with-a-long-random-string/$SECRET/" .env
+fi
+
 echo "==> Running migrations..."
 python manage.py migrate --noinput
 

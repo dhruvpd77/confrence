@@ -2,7 +2,6 @@
 Django settings for conference_project (ICRAET 2026 marksheet portal).
 
 Local development:
-  set DJANGO_DEBUG=1
   python manage.py runserver
 
 PythonAnywhere / production:
@@ -17,6 +16,25 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv():
+    """Load project .env into os.environ (does not override existing vars)."""
+    env_path = BASE_DIR / '.env'
+    if not env_path.is_file():
+        return
+    for line in env_path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv()
 
 
 def _env_bool(name, default=False):
@@ -42,7 +60,9 @@ def _dev_server_ports():
     return [p.strip() for p in ports.split(',') if p.strip()]
 
 
-DEBUG = _env_bool('DJANGO_DEBUG', default=False)
+# DEBUG off by default on PythonAnywhere; on locally it defaults to True.
+ON_PYTHONANYWHERE = bool(os.environ.get('PYTHONANYWHERE_DOMAIN'))
+DEBUG = _env_bool('DJANGO_DEBUG', default=not ON_PYTHONANYWHERE)
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
@@ -50,7 +70,8 @@ if not SECRET_KEY:
         SECRET_KEY = 'django-insecure-txe$9#26r_ttf)!i=7b-47bve8=s%2-411*^q#k8xa#x*gg!pr'
     else:
         raise ImproperlyConfigured(
-            'Set DJANGO_SECRET_KEY in the environment before running in production.'
+            'Set DJANGO_SECRET_KEY in the Web tab, or create a .env file in the '
+            f'project root ({BASE_DIR / ".env"}). See .env.example.'
         )
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
@@ -59,9 +80,13 @@ for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(','):
     if host:
         ALLOWED_HOSTS.append(host)
 
+_pa_domain = os.environ.get('PYTHONANYWHERE_DOMAIN')
+if _pa_domain and _pa_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_pa_domain)
+
 if DEBUG and _env_bool('DJANGO_ALLOW_LAN', default=True):
     ALLOWED_HOSTS = ['*']
-elif not DEBUG and not os.environ.get('DJANGO_ALLOWED_HOSTS'):
+elif not DEBUG and not os.environ.get('DJANGO_ALLOWED_HOSTS') and not _pa_domain:
     ALLOWED_HOSTS.append('.pythonanywhere.com')
 else:
     lan = _lan_ip()
@@ -73,6 +98,11 @@ for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(','):
     origin = origin.strip()
     if origin:
         CSRF_TRUSTED_ORIGINS.append(origin)
+
+if _pa_domain:
+    _pa_origin = f'https://{_pa_domain}'
+    if _pa_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_pa_origin)
 
 if DEBUG:
     for port in _dev_server_ports():
