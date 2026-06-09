@@ -56,8 +56,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const downloadTrackDutyAllBtn = document.getElementById('downloadTrackDutyAllBtn');
 
     function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
         const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
-        return cookie ? cookie.split('=')[1] : '';
+        return cookie ? decodeURIComponent(cookie.split('=')[1].trim()) : '';
     }
 
     function setupUploadZone(zone, input, browseButton, onUpload) {
@@ -93,40 +95,83 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function resetUploadProgress(progressEl, fillEl, textEl) {
+        fillEl.style.width = '0%';
+        if (textEl) textEl.textContent = '';
+        progressEl.classList.add('hidden');
+    }
+
     function postFile(url, fieldName, file, progressEl, fillEl, textEl, resultEl, loadingText) {
         const formData = new FormData();
         formData.append(fieldName, file);
+        const csrfToken = getCsrfToken();
+
+        if (!csrfToken) {
+            resultEl.className = 'upload-result error';
+            resultEl.textContent = 'Session expired. Please refresh the page and login again.';
+            resultEl.classList.remove('hidden');
+            return Promise.resolve();
+        }
 
         progressEl.classList.remove('hidden');
         resultEl.classList.add('hidden');
-        fillEl.style.width = '30%';
-        textEl.textContent = loadingText;
+        fillEl.style.width = '35%';
+        if (textEl) textEl.textContent = loadingText;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
 
         return fetch(url, {
             method: 'POST',
-            headers: { 'X-CSRFToken': getCsrfToken() },
+            headers: { 'X-CSRFToken': csrfToken },
             body: formData,
+            credentials: 'same-origin',
+            signal: controller.signal,
         })
-            .then(res => res.json())
-            .then(data => {
+            .then(async (res) => {
+                clearTimeout(timeoutId);
+                fillEl.style.width = '85%';
+
+                const contentType = res.headers.get('content-type') || '';
+                let data = null;
+                if (contentType.includes('application/json')) {
+                    data = await res.json();
+                }
+
+                if (!data) {
+                    throw new Error(
+                        res.status === 403
+                            ? 'Permission denied. Refresh the page and try again.'
+                            : `Server error (${res.status}). Check Web error log on PythonAnywhere.`
+                    );
+                }
+
                 fillEl.style.width = '100%';
-                if (data.success) {
-                    textEl.textContent = 'Done!';
+                if (res.ok && data.success) {
+                    if (textEl) textEl.textContent = 'Done!';
                     resultEl.className = 'upload-result success';
                     resultEl.textContent = data.message;
                     resultEl.classList.remove('hidden');
-                    setTimeout(() => window.location.reload(), 1500);
+                    setTimeout(() => {
+                        resetUploadProgress(progressEl, fillEl, textEl);
+                        window.location.reload();
+                    }, 1200);
                 } else {
-                    textEl.textContent = 'Failed';
+                    resetUploadProgress(progressEl, fillEl, textEl);
                     resultEl.className = 'upload-result error';
                     resultEl.textContent = data.error || 'Upload failed.';
                     resultEl.classList.remove('hidden');
                 }
             })
             .catch(err => {
-                textEl.textContent = 'Error';
+                clearTimeout(timeoutId);
+                resetUploadProgress(progressEl, fillEl, textEl);
                 resultEl.className = 'upload-result error';
-                resultEl.textContent = 'Network error: ' + err.message;
+                if (err.name === 'AbortError') {
+                    resultEl.textContent = 'Upload timed out. Try a smaller file or reload the page.';
+                } else {
+                    resultEl.textContent = err.message || 'Network error during upload.';
+                }
                 resultEl.classList.remove('hidden');
             });
     }

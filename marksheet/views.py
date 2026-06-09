@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db import transaction
@@ -50,8 +53,34 @@ from .utils.track_duty_generator import generate_track_duty_workbook, parse_trac
 def _get_active_template_path():
     active_template = MarksheetTemplate.objects.filter(is_active=True).first()
     if active_template and active_template.file:
-        return active_template.file.path
+        try:
+            if active_template.file.storage.exists(active_template.file.name):
+                return active_template.file.path
+        except (ValueError, OSError):
+            pass
     return resolve_template_path()
+
+
+def _get_template_status():
+    active_template = MarksheetTemplate.objects.filter(is_active=True).first()
+    if active_template and active_template.file:
+        try:
+            if active_template.file.storage.exists(active_template.file.name):
+                return {
+                    'name': active_template.name,
+                    'source': 'uploaded',
+                    'ready': True,
+                }
+        except (ValueError, OSError):
+            pass
+    bundled = resolve_template_path()
+    if bundled:
+        return {
+            'name': bundled.name,
+            'source': 'bundled',
+            'ready': True,
+        }
+    return {'name': '', 'source': 'none', 'ready': False}
 
 
 def _get_active_schedule():
@@ -142,7 +171,7 @@ def dashboard(request):
     active_schedule = _get_active_schedule()
     papers = Paper.objects.filter(schedule=active_schedule) if active_schedule else Paper.objects.none()
     tracks = _build_track_options(papers)
-    active_template = MarksheetTemplate.objects.filter(is_active=True).first()
+    template_status = _get_template_status()
     faculty_count = get_moderator2_profiles(active_schedule).count() if active_schedule else 0
     verifier_count = get_verifier_profiles(active_schedule).count() if active_schedule else 0
     verifier_assigned = TrackDuty.objects.filter(
@@ -151,8 +180,8 @@ def dashboard(request):
 
     context = {
         'active_schedule': active_schedule,
-        'active_template': active_template,
-        'default_template_exists': resolve_template_path() is not None,
+        'template_status': template_status,
+        'active_template': template_status if template_status['ready'] else None,
         'total_papers': papers.count(),
         'total_tracks': len(tracks),
         'tracks': tracks,
@@ -828,19 +857,33 @@ def upload_template(request):
     if not uploaded_file.name.lower().endswith('.xlsx'):
         return JsonResponse({'success': False, 'error': 'Only .xlsx template files are supported.'}, status=400)
 
+    if uploaded_file.size > 5 * 1024 * 1024:
+        return JsonResponse({'success': False, 'error': 'Template file is too large (max 5 MB).'}, status=400)
+
     try:
-        template = MarksheetTemplate.objects.create(
+        templates_dir = Path(settings.MEDIA_ROOT) / 'templates'
+        templates_dir.mkdir(parents=True, exist_ok=True)
+
+        from openpyxl import load_workbook
+
+        uploaded_file.seek(0)
+        workbook = load_workbook(uploaded_file, read_only=True)
+        workbook.close()
+        uploaded_file.seek(0)
+
+        template = MarksheetTemplate(
             file=uploaded_file,
             name=uploaded_file.name,
             is_active=True,
         )
+        template.save()
         return JsonResponse({
             'success': True,
             'message': f'Marksheet template "{template.name}" uploaded successfully.',
             'template_name': template.name,
         })
     except Exception as exc:
-        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
+        return JsonResponse({'success': False, 'error': f'Upload failed: {exc}'}, status=500)
 
 
 @admin_required

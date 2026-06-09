@@ -76,8 +76,17 @@
                 <div class="progress-bar"><div class="progress-fill" id="templateProgressFill"></div></div>
             </div>
             <div id="templateUploadResult" class="upload-result hidden"></div>
-            {% if active_template %}
-            <div class="active-schedule-info"><strong>Template:</strong> {{ active_template.name }}</div>
+            {% if template_status.ready %}
+            <div class="active-schedule-info">
+                <strong>Template:</strong> {{ template_status.name }}
+                {% if template_status.source == 'bundled' %}
+                <span class="template-badge">Built-in default</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="active-schedule-info template-missing">
+                No template found. Upload an evaluation form .xlsx to enable marksheet downloads.
+            </div>
             {% endif %}
         </div>
     </section>

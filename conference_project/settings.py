@@ -188,7 +188,7 @@ FACULTY_DATA_FILE = Path(
 DEFAULT_EVALUATION_TEMPLATE = Path(
     os.environ.get(
         'DEFAULT_EVALUATION_TEMPLATE',
-        str(BASE_DIR / 'EVALUATION FORM (1).xlsx'),
+        str(BASE_DIR / 'marksheet' / 'data' / 'evaluation_form_template.xlsx'),
     )
 )
 
