@@ -15,7 +15,8 @@ def get_portal_login_url():
 logger = logging.getLogger(__name__)
 
 
-def validate_email_config():
+def validate_email_config(test_connection=False):
+    """Check email settings. SMTP handshake runs only when test_connection=True (e.g. before send)."""
     backend = settings.EMAIL_BACKEND or ''
     if 'console' in backend:
         return (
@@ -30,6 +31,8 @@ def validate_email_config():
             'Gmail not configured. Set DJANGO_EMAIL_HOST_USER and '
             'DJANGO_EMAIL_HOST_PASSWORD in .env or PythonAnywhere environment variables.',
         )
+    if not test_connection:
+        return True, ''
     try:
         connection = get_connection(
             fail_silently=False,
@@ -67,7 +70,7 @@ def _from_email():
 
 
 def send_credential_emails(recipients, login_url):
-    ok, config_error = validate_email_config()
+    ok, config_error = validate_email_config(test_connection=True)
     if not ok:
         return {
             'sent': 0,

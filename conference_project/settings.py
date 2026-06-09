@@ -205,7 +205,7 @@ MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 SITE_URL = os.environ.get(
     'DJANGO_SITE_URL',
-    'https://ljietConference7.pythonanywhere.com',
+    'https://ljietconference7.pythonanywhere.com',
 ).rstrip('/')
 
 SUPPORT_CONTACT_NAME = os.environ.get('DJANGO_SUPPORT_CONTACT_NAME', 'DHRUV PRAJAPATI')

@@ -10,8 +10,8 @@ PythonAnywhere WSGI entry point.
 import os
 import sys
 
-# Project folder on PythonAnywhere
-PROJECT_HOME = '/home/YOURUSERNAME/coNFRENCE'
+# Project folder on PythonAnywhere (username: ljietConference7)
+PROJECT_HOME = '/home/ljietConference7/coNFRENCE'
 
 if PROJECT_HOME not in sys.path:
     sys.path.insert(0, PROJECT_HOME)

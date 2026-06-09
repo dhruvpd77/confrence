@@ -87,14 +87,24 @@ Click **Reload** on the Web tab, then open `https://yourusername.pythonanywhere.
 
 ```bash
 cd ~/coNFRENCE
-git pull   # or re-upload files
-source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py collectstatic --noinput
+git pull
+bash deploy/post_update.sh
 ```
 
-Then **Reload** the web app.
+Then **Reload** the web app on the Web tab.
+
+### Fix "Server Error (500)" after git pull
+
+1. **Bash console** — run `bash deploy/post_update.sh` (migrates DB + collects static files).
+2. **Check `.env`** exists in `~/coNFRENCE/` with `DJANGO_SECRET_KEY` set (copy from `.env.example` if missing).
+3. **Web tab → WSGI** — ensure `PROJECT_HOME` is `/home/ljietConference7/coNFRENCE` (see `deploy/pythonanywhere_wsgi.py`).
+4. **Web tab → Environment variables** — set at minimum:
+   - `DJANGO_SECRET_KEY`
+   - `DJANGO_DEBUG=0`
+   - `DJANGO_ALLOWED_HOSTS=ljietconference7.pythonanywhere.com`
+   - `DJANGO_CSRF_TRUSTED_ORIGINS=https://ljietconference7.pythonanywhere.com`
+5. **Error log** — Web tab → Log files → error log (shows the exact Python traceback).
+6. Click **Reload**.
 
 ## Login Credentials
 
