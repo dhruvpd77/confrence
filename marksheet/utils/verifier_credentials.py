@@ -182,8 +182,10 @@ def generate_verifier_credentials_workbook(profiles):
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
+    matcher = FacultyMatcher()
+
     headers = [
-        'Verifier Name', 'Login ID', 'Password (4-digit)', 'Mobile',
+        'Verifier Name', 'Login ID', 'Password (4-digit)', 'Mobile', 'Email ID',
         'Role', 'Day', 'Track Session', 'Room',
     ]
     for col, header in enumerate(headers, start=1):
@@ -194,18 +196,21 @@ def generate_verifier_credentials_workbook(profiles):
 
     row = 2
     for profile in profiles:
+        email = matcher.find_email(profile.display_name) or ''
+        phone = profile.phone or matcher.find_mobile(profile.display_name) or ''
         duties = get_verifier_duties(profile)
         for item in duties or [{'duty': None, 'roles': ['Verifier']}]:
             duty = item.get('duty')
             ws.cell(row, 1, profile.display_name)
             ws.cell(row, 2, profile.user.username)
             ws.cell(row, 3, profile.plain_password)
-            ws.cell(row, 4, profile.phone)
-            ws.cell(row, 5, 'Verifier')
+            ws.cell(row, 4, phone)
+            ws.cell(row, 5, email)
+            ws.cell(row, 6, 'Verifier')
             if duty:
-                ws.cell(row, 6, f'Day {duty.day}')
-                ws.cell(row, 7, duty.track_session)
-                ws.cell(row, 8, duty.room)
+                ws.cell(row, 7, f'Day {duty.day}')
+                ws.cell(row, 8, duty.track_session)
+                ws.cell(row, 9, duty.room)
             row += 1
 
     buffer = BytesIO()

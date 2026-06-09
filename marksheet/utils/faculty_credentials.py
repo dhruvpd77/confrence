@@ -230,8 +230,10 @@ def generate_credentials_workbook(profiles):
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
+    matcher = FacultyMatcher()
+
     headers = [
-        'Moderator-2 Name', 'Login ID', 'Password (4-digit)', 'Mobile',
+        'Moderator-2 Name', 'Login ID', 'Password (4-digit)', 'Mobile', 'Email ID',
         'Role', 'Day', 'Track Session', 'Room',
     ]
     for col, header in enumerate(headers, start=1):
@@ -243,12 +245,15 @@ def generate_credentials_workbook(profiles):
 
     row = 2
     for profile in profiles:
+        email = matcher.find_email(profile.display_name) or ''
+        phone = profile.phone or matcher.find_mobile(profile.display_name) or ''
         duties = get_faculty_duties(profile)
         if not duties:
             ws.cell(row, 1, profile.display_name)
             ws.cell(row, 2, profile.user.username)
             ws.cell(row, 3, profile.plain_password)
-            ws.cell(row, 4, profile.phone)
+            ws.cell(row, 4, phone)
+            ws.cell(row, 5, email)
             row += 1
             continue
 
@@ -257,17 +262,18 @@ def generate_credentials_workbook(profiles):
             ws.cell(row, 1, profile.display_name)
             ws.cell(row, 2, profile.user.username)
             ws.cell(row, 3, profile.plain_password)
-            ws.cell(row, 4, profile.phone)
-            ws.cell(row, 5, ', '.join(item['roles']))
-            ws.cell(row, 6, f'Day {duty.day}')
-            ws.cell(row, 7, duty.track_session)
-            ws.cell(row, 8, duty.room)
-            for col in range(1, 9):
+            ws.cell(row, 4, phone)
+            ws.cell(row, 5, email)
+            ws.cell(row, 6, ', '.join(item['roles']))
+            ws.cell(row, 7, f'Day {duty.day}')
+            ws.cell(row, 8, duty.track_session)
+            ws.cell(row, 9, duty.room)
+            for col in range(1, 10):
                 ws.cell(row, col).border = border
                 ws.cell(row, col).alignment = Alignment(vertical='center', wrap_text=True)
             row += 1
 
-    widths = [28, 18, 18, 16, 30, 10, 18, 14]
+    widths = [28, 18, 18, 16, 28, 30, 10, 18, 14]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[chr(64 + i)].width = w
 

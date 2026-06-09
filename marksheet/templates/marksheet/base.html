@@ -45,10 +45,10 @@
             <a href="{% url 'results_ranking' %}" class="nav-item {% if sidebar_active == 'results' %}active{% endif %}">
                 <span class="nav-icon-svg">◆</span> Results
             </a>
-            <a href="{% url 'download_faculty_credentials' %}" class="nav-item {% if sidebar_active == 'credentials' %}active{% endif %}">
+            <a href="{% url 'moderator_credentials' %}" class="nav-item {% if sidebar_active == 'credentials' %}active{% endif %}">
                 <span class="nav-icon-svg">◆</span> Moderator-2 Credentials
             </a>
-            <a href="{% url 'download_verifier_credentials' %}" class="nav-item">
+            <a href="{% url 'verifier_credentials' %}" class="nav-item {% if sidebar_active == 'verifier_credentials' %}active{% endif %}">
                 <span class="nav-icon-svg">◆</span> Verifier Credentials
             </a>
             {% elif is_verifier %}

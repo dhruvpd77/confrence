@@ -45,13 +45,6 @@ def format_mobile(value):
 
 
 class FacultyMatcher:
-    def __init__(self, file_path=None):
-        self.file_path = Path(file_path) if file_path else self._default_path()
-        self.records = []
-        self.by_normalized = {}
-        if self.file_path and self.file_path.exists():
-            self._load()
-
     @staticmethod
     def _default_path():
         return Path(settings.FACULTY_DATA_FILE)
@@ -62,12 +55,18 @@ class FacultyMatcher:
 
         name_col = 2
         mobile_col = 22
+        email_col = 23
 
         for row in range(3, worksheet.max_row + 1):
             name = worksheet.cell(row, name_col).value
-            mobile = format_mobile(worksheet.cell(row, mobile_col).value)
-            if not name or not mobile:
+            if not name:
                 continue
+
+            mobile = format_mobile(worksheet.cell(row, mobile_col).value)
+            email_raw = worksheet.cell(row, email_col).value
+            email = str(email_raw).strip().lower() if email_raw else ''
+            if email and '@' not in email:
+                email = ''
 
             normalized = normalize_name(name)
             tokens = name_tokens(name)
@@ -78,82 +77,93 @@ class FacultyMatcher:
                 'name': str(name).strip(),
                 'normalized': normalized,
                 'tokens': tokens,
-                'mobile': mobile,
+                'mobile': mobile or '',
+                'email': email,
                 'first': tokens[0],
                 'last': tokens[-1],
             }
             self.records.append(record)
-            self.by_normalized[normalized] = mobile
+            if mobile:
+                self.by_normalized[normalized] = mobile
+            if email:
+                self.by_email_normalized[normalized] = email
 
         workbook.close()
 
-    def find_mobile(self, name):
+    def __init__(self, file_path=None):
+        self.file_path = Path(file_path) if file_path else self._default_path()
+        self.records = []
+        self.by_normalized = {}
+        self.by_email_normalized = {}
+        if self.file_path and self.file_path.exists():
+            self._load()
+
+    def _find_record_field(self, name, field):
         if not name or not self.records:
             return None
 
         normalized = normalize_name(name)
-        if normalized in self.by_normalized:
-            return self.by_normalized[normalized]
+        lookup = self.by_email_normalized if field == 'email' else self.by_normalized
+        if normalized in lookup:
+            return lookup[normalized]
 
         tokens = name_tokens(name)
         if not tokens:
             return None
 
         first, last = tokens[0], tokens[-1]
-
-        # First + last name match
-        candidates = [
-            r for r in self.records
-            if r['first'] == first and r['last'] == last
-        ]
+        candidates = [r for r in self.records if r['first'] == first and r['last'] == last]
         if len(candidates) == 1:
-            return candidates[0]['mobile']
+            return candidates[0][field] or None
         if len(candidates) > 1:
-            token_matches = [
-                r for r in candidates
-                if all(t in r['tokens'] for t in tokens)
-            ]
+            token_matches = [r for r in candidates if all(t in r['tokens'] for t in tokens)]
             if len(token_matches) == 1:
-                return token_matches[0]['mobile']
+                return token_matches[0][field] or None
 
-        # Schedule name tokens all appear in faculty record (e.g. MOSAM PANDYA)
-        subset_matches = [
-            r for r in self.records
-            if all(t in r['tokens'] for t in tokens)
-        ]
+        subset_matches = [r for r in self.records if all(t in r['tokens'] for t in tokens)]
         if len(subset_matches) == 1:
-            return subset_matches[0]['mobile']
+            return subset_matches[0][field] or None
 
-        # Match if first token + any token from schedule matches last name
         last_matches = [r for r in self.records if r['last'] == last]
         if len(last_matches) == 1 and first == last_matches[0]['first']:
-            return last_matches[0]['mobile']
+            return last_matches[0][field] or None
 
         first_last_in_faculty = [
             r for r in self.records
             if r['first'] == first and last in r['tokens']
         ]
         if len(first_last_in_faculty) == 1:
-            return first_last_in_faculty[0]['mobile']
+            return first_last_in_faculty[0][field] or None
 
-        # Surname-first format: PRAJAPATI DHRUV VIJAYBHAI -> DHRUV ... PRAJAPATI
         if len(tokens) >= 2:
             reversed_matches = [
                 r for r in self.records
                 if r['last'] == tokens[0] and r['first'] == tokens[1]
             ]
             if len(reversed_matches) == 1:
-                return reversed_matches[0]['mobile']
+                return reversed_matches[0][field] or None
 
-        # Fuzzy last-name match when first name is exact
         fuzzy_matches = [
             r for r in self.records
             if r['first'] == first and _similar_token(r['last'], last)
         ]
         if len(fuzzy_matches) == 1:
-            return fuzzy_matches[0]['mobile']
+            return fuzzy_matches[0][field] or None
 
         return None
+
+    def find_email(self, name):
+        return self._find_record_field(name, 'email')
+
+    def find_contact(self, name):
+        return {
+            'phone': self.find_mobile(name) or '',
+            'email': self.find_email(name) or '',
+        }
+
+    def find_mobile(self, name):
+        value = self._find_record_field(name, 'mobile')
+        return value or None
 
     def format_with_mobile(self, name):
         if not name:

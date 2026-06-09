@@ -145,7 +145,7 @@
         {% if active_schedule %}
         <div class="active-schedule-info">
             <strong>Verifier tracks assigned:</strong> {{ verifier_assigned }} rows —
-            <a href="{% url 'download_verifier_credentials' %}" class="btn btn-sm btn-gold" style="margin-left:8px">Download Verifier Credentials</a>
+            <a href="{% url 'verifier_credentials' %}" class="btn btn-sm btn-gold" style="margin-left:8px">Verifier Credentials</a>
         </div>
         {% endif %}
     </div>
@@ -164,7 +164,7 @@
             </select>
             <button type="button" class="btn btn-primary" id="downloadTrackDutyBtn" {% if not active_schedule %}disabled{% endif %}>Track Duty</button>
             <button type="button" class="btn btn-secondary" id="downloadTrackDutyAllBtn" {% if not active_schedule %}disabled{% endif %}>All Days Duty</button>
-            <a href="{% url 'download_faculty_credentials' %}" class="btn btn-accent" {% if not faculty_count %}style="pointer-events:none;opacity:0.5"{% endif %}>Download Moderator-2 Credentials</a>
+            <a href="{% url 'moderator_credentials' %}" class="btn btn-accent" {% if not faculty_count %}style="pointer-events:none;opacity:0.5"{% endif %}>Moderator-2 Credentials</a>
         </div>
     </div>
 </section>

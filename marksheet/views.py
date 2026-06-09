@@ -29,6 +29,14 @@ from .utils.results_service import get_top_scored_papers
 from .utils.schedule_sync import sync_papers
 from .utils.evaluation_service import get_evaluations_for_papers, get_paper_evaluation, save_paper_evaluation
 from .utils.track_lock import get_locks_map, is_track_locked, lock_track
+from .utils.credential_email import send_credential_emails
+from .utils.credentials_service import (
+    build_moderator_credential_rows,
+    build_verifier_credential_rows,
+    credential_stats,
+    group_moderator_email_recipients,
+    group_verifier_email_recipients,
+)
 from .utils.verifier_credentials import (
     generate_verifier_credentials_workbook,
     get_track_verifier_contact,
@@ -614,6 +622,94 @@ def upload_verifier_assignments(request):
         })
     except Exception as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=500)
+
+
+@admin_required
+def moderator_credentials_page(request):
+    active_schedule = _get_active_schedule()
+    rows = build_moderator_credential_rows(active_schedule) if active_schedule else []
+    context = {
+        'page_title': 'Moderator-2 Credentials',
+        'page_subtitle': 'Login details, contact info & email for Moderator-2 (Entry)',
+        'rows': rows,
+        'stats': credential_stats(rows) if rows else {
+            'total_rows': 0, 'unique_people': 0, 'with_email': 0, 'without_email': 0,
+        },
+        'download_url': reverse('download_faculty_credentials'),
+        'send_email_url': reverse('send_moderator_credentials_email'),
+        'empty_message': 'No Moderator-2 credentials. Upload schedule Excel first.',
+        'sidebar_active': 'credentials',
+        'is_admin': True,
+    }
+    return render(request, 'marksheet/credentials_page.html', context)
+
+
+@admin_required
+def verifier_credentials_page(request):
+    active_schedule = _get_active_schedule()
+    rows = build_verifier_credential_rows(active_schedule) if active_schedule else []
+    context = {
+        'page_title': 'Verifier Credentials',
+        'page_subtitle': 'Login details, contact info & email for Verifiers',
+        'rows': rows,
+        'stats': credential_stats(rows) if rows else {
+            'total_rows': 0, 'unique_people': 0, 'with_email': 0, 'without_email': 0,
+        },
+        'download_url': reverse('download_verifier_credentials'),
+        'send_email_url': reverse('send_verifier_credentials_email'),
+        'empty_message': 'No verifier credentials. Upload verifier assignment Excel first.',
+        'sidebar_active': 'verifier_credentials',
+        'is_admin': True,
+    }
+    return render(request, 'marksheet/credentials_page.html', context)
+
+
+@admin_required
+@require_http_methods(['POST'])
+def send_moderator_credentials_email(request):
+    active_schedule = _get_active_schedule()
+    if not active_schedule:
+        return JsonResponse({'success': False, 'error': 'No schedule uploaded.'}, status=400)
+
+    recipients = group_moderator_email_recipients(active_schedule)
+    if not recipients:
+        return JsonResponse({'success': False, 'error': 'No Moderator-2 credentials found.'}, status=400)
+
+    login_url = request.build_absolute_uri(reverse('login'))
+    if not login_url.startswith('http'):
+        login_url = f"{settings.SITE_URL}{reverse('login')}"
+
+    result = send_credential_emails(recipients, login_url)
+    return JsonResponse({
+        'success': True,
+        'sent': result['sent'],
+        'skipped_no_email': result['skipped_no_email'],
+        'failed': result['failed'],
+    })
+
+
+@admin_required
+@require_http_methods(['POST'])
+def send_verifier_credentials_email(request):
+    active_schedule = _get_active_schedule()
+    if not active_schedule:
+        return JsonResponse({'success': False, 'error': 'No schedule uploaded.'}, status=400)
+
+    recipients = group_verifier_email_recipients(active_schedule)
+    if not recipients:
+        return JsonResponse({'success': False, 'error': 'No verifier credentials found.'}, status=400)
+
+    login_url = request.build_absolute_uri(reverse('login'))
+    if not login_url.startswith('http'):
+        login_url = f"{settings.SITE_URL}{reverse('login')}"
+
+    result = send_credential_emails(recipients, login_url)
+    return JsonResponse({
+        'success': True,
+        'sent': result['sent'],
+        'skipped_no_email': result['skipped_no_email'],
+        'failed': result['failed'],
+    })
 
 
 @admin_required
