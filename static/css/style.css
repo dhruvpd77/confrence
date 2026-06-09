@@ -936,6 +936,93 @@ body {
     font-weight: 600;
 }
 
+.section-head-with-verifier {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.section-head-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.verifier-contact-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f5e9 100%);
+    border: 1px solid #c8e6c9;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+}
+
+.verifier-contact-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.verifier-contact-name {
+    color: var(--black);
+    font-weight: 700;
+}
+
+.verifier-call-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #2e7d32;
+    color: #fff !important;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    min-height: 36px;
+}
+
+.verifier-call-link:hover {
+    background: #1b5e20;
+    color: #fff;
+}
+
+.verifier-call-link-sm {
+    padding: 6px 10px;
+    min-height: 32px;
+}
+
+.call-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.verifier-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.verifier-contact-missing,
+.verifier-contact-phone {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.paper-card-verifier .verifier-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .paper-cards {
     display: grid;
     gap: 16px;
@@ -1084,6 +1171,7 @@ body {
     border-radius: var(--radius-sm);
     font-size: 14px;
     font-weight: 600;
+    box-sizing: border-box;
 }
 
 .marks-input:focus {
@@ -1790,18 +1878,23 @@ img { max-width: 100%; height: auto; }
         content: none;
     }
 
-    /* Evaluation form — keep table layout like desktop, compact for phones */
+    /* Evaluation form — keep table layout, prevent marks column clipping */
+    .eval-section {
+        overflow: visible;
+    }
+
     .eval-table-wrap {
         padding: 0;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        max-width: 100%;
     }
 
     .eval-table-responsive {
         table-layout: fixed;
         width: 100%;
         font-size: 12px;
-        min-width: 280px;
+        min-width: 0;
     }
 
     .eval-table-responsive thead {
@@ -1826,25 +1919,35 @@ img { max-width: 100%; height: auto; }
 
     .eval-table-responsive th:nth-child(1),
     .eval-table-responsive td:nth-child(1) {
-        width: 36px;
+        width: 10%;
         text-align: center;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    .eval-table-responsive th:nth-child(2),
+    .eval-table-responsive td:nth-child(2) {
+        width: 46%;
+        word-break: break-word;
+        line-height: 1.35;
+        padding-left: 6px;
+        padding-right: 6px;
     }
 
     .eval-table-responsive th:nth-child(3),
     .eval-table-responsive td:nth-child(3) {
-        width: 52px;
+        width: 14%;
         text-align: center;
+        padding-left: 4px;
+        padding-right: 4px;
     }
 
     .eval-table-responsive th:nth-child(4),
     .eval-table-responsive td:nth-child(4) {
-        width: 72px;
+        width: 30%;
         text-align: center;
-    }
-
-    .eval-table-responsive td:nth-child(2) {
-        word-break: break-word;
-        line-height: 1.35;
+        padding-left: 6px;
+        padding-right: 6px;
     }
 
     .eval-table-responsive .subtotal-row td {
@@ -1852,14 +1955,28 @@ img { max-width: 100%; height: auto; }
         font-weight: 600;
     }
 
+    .eval-table-responsive .marks-input-cell {
+        min-width: 0;
+        width: 100%;
+        max-width: 88px;
+        margin: 0 auto;
+        align-items: stretch;
+    }
+
     .eval-table-responsive .marks-input {
-        width: 56px;
-        max-width: 100%;
+        width: 100%;
+        max-width: 88px;
         min-height: 44px;
         font-size: 16px;
-        padding: 8px 4px;
+        padding: 8px 6px;
         margin: 0 auto;
         display: block;
+        box-sizing: border-box;
+    }
+
+    .eval-table-responsive .marks-input-error {
+        max-width: 100%;
+        font-size: 9px;
     }
 
     .eval-info-row {

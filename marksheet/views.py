@@ -31,6 +31,7 @@ from .utils.evaluation_service import get_evaluations_for_papers, get_paper_eval
 from .utils.track_lock import get_locks_map, is_track_locked, lock_track
 from .utils.verifier_credentials import (
     generate_verifier_credentials_workbook,
+    get_track_verifier_contact,
     get_verifier_duties,
     get_verifier_profiles,
     get_verifier_track_keys,
@@ -234,6 +235,7 @@ def faculty_evaluations(request):
     papers = []
     selected_track = None
     track_locked = False
+    verifier_info = None
 
     if active_schedule and track_keys:
         all_papers = Paper.objects.filter(schedule=active_schedule)
@@ -261,6 +263,7 @@ def faculty_evaluations(request):
                 selected_track = track_key
                 evaluations = get_evaluations_for_papers(papers)
                 track_locked = is_track_locked(active_schedule, day, track_session)
+                verifier_info = get_track_verifier_contact(active_schedule, day, track_session)
                 for paper in papers:
                     paper.user_evaluation = evaluations.get(paper.id)
                     paper.eval_status = (
@@ -274,6 +277,7 @@ def faculty_evaluations(request):
         'track_options': track_options,
         'selected_track': selected_track,
         'papers': papers,
+        'verifier_info': verifier_info,
         'track_locked': track_locked,
         'sidebar_active': 'evaluations',
         'is_admin': False,

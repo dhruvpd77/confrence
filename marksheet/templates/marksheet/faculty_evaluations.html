@@ -30,9 +30,27 @@
 
 {% if papers %}
 <section class="eval-papers-section animate-fade-in">
-    <div class="section-head">
-        <h2>Papers in Session</h2>
-        <span class="paper-count-badge">{{ papers|length }} papers</span>
+    <div class="section-head section-head-with-verifier">
+        <div class="section-head-main">
+            <h2>Papers in Session</h2>
+            <span class="paper-count-badge">{{ papers|length }} papers</span>
+        </div>
+        {% if verifier_info %}
+        <div class="verifier-contact-bar">
+            <span class="verifier-contact-label">Verifier</span>
+            <strong class="verifier-contact-name">{{ verifier_info.name }}</strong>
+            {% if verifier_info.phone_dial %}
+            <a href="tel:{{ verifier_info.phone_dial }}" class="verifier-call-link" title="Call {{ verifier_info.name }}">
+                <span class="call-icon" aria-hidden="true">📞</span>
+                <span>{{ verifier_info.phone|default:verifier_info.phone_dial }}</span>
+            </a>
+            {% elif verifier_info.phone %}
+            <span class="verifier-contact-phone">{{ verifier_info.phone }}</span>
+            {% else %}
+            <span class="verifier-contact-missing">Phone not available</span>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 
     <!-- Desktop table -->
@@ -47,6 +65,7 @@
                     <th>University</th>
                     <th>Mode</th>
                     <th>Chair</th>
+                    <th>Verifier</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
@@ -61,6 +80,18 @@
                     <td data-label="University">{{ paper.university|default:"—" }}</td>
                     <td data-label="Mode">{{ paper.mode|default:"—" }}</td>
                     <td data-label="Chair">{{ paper.session_chair|default:"—" }}</td>
+                    <td data-label="Verifier">
+                        {% if verifier_info %}
+                        <div class="verifier-cell">
+                            <span>{{ verifier_info.name }}</span>
+                            {% if verifier_info.phone_dial %}
+                            <a href="tel:{{ verifier_info.phone_dial }}" class="verifier-call-link verifier-call-link-sm" title="Call verifier">
+                                <span class="call-icon" aria-hidden="true">📞</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% else %}—{% endif %}
+                    </td>
                     <td data-label="Status">
                         <span class="status-badge {% if paper.eval_status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
                             {{ paper.eval_status }}
@@ -98,6 +129,20 @@
                 <div><label>University</label><span>{{ paper.university|default:"—" }}</span></div>
                 <div><label>Mode</label><span>{{ paper.mode|default:"—" }}</span></div>
                 <div><label>Session Chair</label><span>{{ paper.session_chair|default:"—" }}</span></div>
+                {% if verifier_info %}
+                <div class="paper-card-verifier">
+                    <label>Verifier</label>
+                    <span class="verifier-cell">
+                        {{ verifier_info.name }}
+                        {% if verifier_info.phone_dial %}
+                        <a href="tel:{{ verifier_info.phone_dial }}" class="verifier-call-link verifier-call-link-sm" title="Call verifier">
+                            <span class="call-icon" aria-hidden="true">📞</span>
+                            {{ verifier_info.phone|default:verifier_info.phone_dial }}
+                        </a>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
             </div>
             {% if track_locked %}
             <span class="btn btn-gold btn-full" style="opacity:0.5;pointer-events:none">Locked</span>

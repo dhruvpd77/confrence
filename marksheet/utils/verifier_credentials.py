@@ -83,6 +83,50 @@ def get_verifier_profiles(schedule):
     return VerifierProfile.objects.filter(schedule=schedule).select_related('user').order_by('display_name')
 
 
+def get_track_verifier_contact(schedule, day, track_session):
+    """Verifier name and phone for a track session (Moderator-2 evaluations view)."""
+    if not schedule:
+        return None
+
+    duty = (
+        TrackDuty.objects.filter(
+            schedule=schedule,
+            day=day,
+            track_session=track_session,
+        )
+        .exclude(verifier='')
+        .first()
+    )
+    if not duty:
+        return None
+
+    display_name = duty.verifier.strip()
+    phone = ''
+
+    for profile in get_verifier_profiles(schedule):
+        if verifier_matches_name(profile, display_name):
+            display_name = profile.display_name
+            phone = profile.phone or ''
+            break
+
+    if not phone:
+        phone = FacultyMatcher().find_mobile(display_name) or ''
+
+    phone_digits = re.sub(r'\D', '', phone) if phone else ''
+    if phone_digits.startswith('91') and len(phone_digits) > 10:
+        phone_dial = f'+{phone_digits}'
+    elif phone_digits:
+        phone_dial = f'+91{phone_digits}' if len(phone_digits) == 10 else phone_digits
+    else:
+        phone_dial = ''
+
+    return {
+        'name': display_name,
+        'phone': phone,
+        'phone_dial': phone_dial,
+    }
+
+
 def sync_verifier_users(schedule):
     faculty_matcher = FacultyMatcher()
     unique_names = {}
