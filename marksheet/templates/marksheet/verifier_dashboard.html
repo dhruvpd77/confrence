@@ -1,0 +1,55 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — Verifier{% endblock %}
+{% block page_title %}Welcome, {{ profile.display_name }}{% endblock %}
+{% block page_subtitle %}Your assigned tracks to verify and lock{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <form method="get" class="form-row form-row-stack-mobile filter-form-row">
+        <label>Filter by Day:</label>
+        <select name="day" class="form-select" onchange="this.form.submit()">
+            <option value="">All Days</option>
+            {% for day in days %}
+            <option value="{{ day }}" {% if selected_day == day %}selected{% endif %}>Day {{ day }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if duties %}
+<div class="duty-cards">
+    {% for item in duties %}
+    {% with duty=item.duty %}
+    <div class="duty-card {% if item.is_locked %}duty-card-locked{% endif %}">
+        <div class="duty-card-header">
+            <span class="duty-day">Day {{ duty.day }}</span>
+            {% if item.is_locked %}
+            <span class="status-badge status-done">🔒 LOCKED</span>
+            {% else %}
+            <span class="status-badge status-pending">Open</span>
+            {% endif %}
+        </div>
+        <h3>{{ duty.track_session }}</h3>
+        <p class="duty-track-name">{{ duty.track_name }}</p>
+        <p class="duty-room-line">Room: <strong>{{ duty.room }}</strong></p>
+        <div class="duty-staff-grid">
+            <div class="staff-item"><label>Verifier</label><span>{{ duty.verifier }}</span></div>
+            <div class="staff-item"><label>Moderator-2</label><span>{{ duty.moderator_2|default:"—" }}</span></div>
+            <div class="staff-item"><label>Session Chair</label><span>{{ duty.session_chair|default:"—" }}</span></div>
+        </div>
+        {% if item.locked_at %}
+        <p class="lock-time">Locked: {{ item.locked_at|date:"d M Y, H:i" }}</p>
+        {% endif %}
+        <a href="{% url 'verifier_evaluations' %}?track={{ duty.day }}|{{ duty.track_session }}" class="btn btn-gold btn-sm">Verify Marks →</a>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <h3>No verifier assignments</h3>
+    <p>Ask admin to upload verifier assignment Excel with your name in VERIFIER column.</p>
+</div>
+{% endif %}
+{% endblock %}

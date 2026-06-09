@@ -1,0 +1,55 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — My Duties{% endblock %}
+{% block page_title %}Welcome, {{ profile.display_name }}{% endblock %}
+{% block page_subtitle %}Your Moderator-2 (Entry) track assignments for ICRAET 2026{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <form method="get" class="form-row form-row-stack-mobile filter-form-row">
+        <label>Filter by Day:</label>
+        <select name="day" class="form-select" onchange="this.form.submit()">
+            <option value="">All Days</option>
+            {% for day in days %}
+            <option value="{{ day }}" {% if selected_day == day %}selected{% endif %}>Day {{ day }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if duties %}
+<div class="duty-cards">
+    {% for item in duties %}
+    {% with duty=item.duty %}
+    <div class="duty-card track-color-{{ forloop.counter0|add:1 }}">
+        <div class="duty-card-header">
+            <span class="duty-day">Day {{ duty.day }}</span>
+            <span class="duty-room">{{ duty.room }}</span>
+        </div>
+        <h3>{{ duty.track_session }}</h3>
+        <p class="duty-track-name">{{ duty.track_name }}</p>
+        <div class="duty-roles">
+            {% for role in item.roles %}
+            <span class="role-badge">{{ role }}</span>
+            {% endfor %}
+        </div>
+        <div class="duty-staff-grid">
+            <div class="staff-item"><label>Session Chair</label><span>{{ duty.session_chair|default:"—" }}</span></div>
+            <div class="staff-item"><label>Track Coordinator</label><span>{{ duty.track_coordinator|default:"—" }}</span></div>
+            <div class="staff-item"><label>Moderator-1 (Anchor)</label><span>{{ duty.moderator_1|default:"—" }}</span></div>
+            <div class="staff-item"><label>Moderator-2 (Entry)</label><span>{{ duty.moderator_2|default:"—" }}</span></div>
+            <div class="staff-item"><label>Moderator-3 (Zoom)</label><span>{{ duty.moderator_3|default:"—" }}</span></div>
+        </div>
+        <a href="{% url 'faculty_evaluations' %}?track={{ duty.day }}|{{ duty.track_session }}" class="btn btn-primary btn-sm">Go to Evaluations →</a>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h3>No duties assigned</h3>
+    <p>Your name was not found in the active schedule track duty list. Contact the conference admin.</p>
+</div>
+{% endif %}
+{% endblock %}

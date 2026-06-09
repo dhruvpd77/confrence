@@ -1,0 +1,116 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — Evaluations{% endblock %}
+{% block page_title %}Paper Evaluations{% endblock %}
+{% block page_subtitle %}Select track session and evaluate papers{% endblock %}
+
+{% block content %}
+<div class="panel panel-dark-header animate-fade-in">
+    <div class="panel-header">
+        <h2>Select Track Session</h2>
+        <p>Choose your assigned Moderator-2 track</p>
+    </div>
+    <div class="panel-body">
+        <form method="get" class="form-row form-row-stack-mobile">
+            <select name="track" class="form-select form-select-lg" onchange="this.form.submit()">
+                <option value="">— Select Track Session —</option>
+                {% for opt in track_options %}
+                <option value="{{ opt.key }}" {% if selected_track == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+{% if track_locked %}
+<div class="alert alert-info lock-banner animate-fade-in">
+    🔒 <strong>Track Locked by Verifier</strong> — You cannot edit marks for this track session.
+</div>
+{% endif %}
+
+{% if papers %}
+<section class="eval-papers-section animate-fade-in">
+    <div class="section-head">
+        <h2>Papers in Session</h2>
+        <span class="paper-count-badge">{{ papers|length }} papers</span>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="table-wrapper desktop-only">
+        <table class="data-table data-table-corporate">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Paper ID</th>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>University</th>
+                    <th>Mode</th>
+                    <th>Chair</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for paper in papers %}
+                <tr class="table-row-animate">
+                    <td data-label="#">{{ paper.serial_order }}</td>
+                    <td data-label="Paper ID"><code>{{ paper.paper_id }}</code></td>
+                    <td data-label="Title">{{ paper.paper_title }}</td>
+                    <td data-label="Author">{{ paper.author_name }}</td>
+                    <td data-label="University">{{ paper.university|default:"—" }}</td>
+                    <td data-label="Mode">{{ paper.mode|default:"—" }}</td>
+                    <td data-label="Chair">{{ paper.session_chair|default:"—" }}</td>
+                    <td data-label="Status">
+                        <span class="status-badge {% if paper.eval_status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
+                            {{ paper.eval_status }}
+                        </span>
+                    </td>
+                    <td data-label="Action">
+                        {% if track_locked %}
+                        <span class="status-badge status-pending">Locked</span>
+                        {% else %}
+                        <a href="{% url 'evaluation_form' paper.id %}" class="btn btn-sm btn-gold">
+                            {% if paper.eval_status == 'Completed' %}Edit{% else %}Evaluate{% endif %}
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="paper-cards mobile-only">
+        {% for paper in papers %}
+        <article class="paper-card">
+            <div class="paper-card-top">
+                <span class="paper-serial">#{{ paper.serial_order }}</span>
+                <span class="status-badge {% if paper.eval_status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
+                    {{ paper.eval_status }}
+                </span>
+            </div>
+            <code class="paper-id-tag">{{ paper.paper_id }}</code>
+            <h3 class="paper-card-title">{{ paper.paper_title }}</h3>
+            <div class="paper-card-meta">
+                <div><label>Author</label><span>{{ paper.author_name }}</span></div>
+                <div><label>University</label><span>{{ paper.university|default:"—" }}</span></div>
+                <div><label>Mode</label><span>{{ paper.mode|default:"—" }}</span></div>
+                <div><label>Session Chair</label><span>{{ paper.session_chair|default:"—" }}</span></div>
+            </div>
+            {% if track_locked %}
+            <span class="btn btn-gold btn-full" style="opacity:0.5;pointer-events:none">Locked</span>
+            {% else %}
+            <a href="{% url 'evaluation_form' paper.id %}" class="btn btn-gold btn-full">
+                {% if paper.eval_status == 'Completed' %}Edit Evaluation{% else %}Start Evaluation{% endif %}
+            </a>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% elif selected_track %}
+<div class="empty-state animate-fade-in"><p>No papers found for this track session.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}Evaluate — {{ paper.paper_id }}{% endblock %}
+{% block page_title %}International Conference Evaluation Form{% endblock %}
+{% block page_subtitle %}ICRAET 2026 — {{ paper.paper_id }}{% endblock %}
+
+{% block content %}
+<form method="post" class="eval-form" id="evalForm">
+    {% csrf_token %}
+
+    <div class="eval-banner">International Conference Evaluation Form — ICRAET 2026</div>
+
+    {% if track_locked and is_faculty %}
+    <div class="alert alert-info lock-banner">🔒 This track is locked by the verifier. View only.</div>
+    {% endif %}
+
+    {% if evaluation %}
+    <div class="eval-timestamps">
+        {% if evaluation.moderator_entered_at %}
+        <span>Moderator-2 entry: <strong>{{ evaluation.moderator_entered_at|date:"d M Y, H:i" }}</strong></span>
+        {% endif %}
+        {% if evaluation.verifier_modified_at %}
+        <span>Verifier edit: <strong>{{ evaluation.verifier_modified_at|date:"d M Y, H:i" }}</strong></span>
+        {% endif %}
+        {% if track_lock and track_lock.is_locked %}
+        <span>Track locked: <strong>{{ track_lock.locked_at|date:"d M Y, H:i" }}</strong></span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="eval-info-grid">
+        <div class="eval-info-row"><label>Paper ID</label><span>{{ paper.paper_id }}</span></div>
+        <div class="eval-info-row"><label>Paper Title</label><span>{{ paper.paper_title }}</span></div>
+        <div class="eval-info-row"><label>Author(s)</label><span>{{ paper.author_name }}</span></div>
+        <div class="eval-info-row"><label>Session Chair Name</label><span>{{ paper.session_chair }}</span></div>
+        <div class="eval-info-row"><label>Affiliation</label><span>{{ paper.university|default:"" }}</span></div>
+        <div class="eval-info-row"><label>Track / Session</label><span>{{ paper.track_session_display }}</span></div>
+        <div class="eval-info-row"><label>Mode</label><span>{{ paper.mode|default:"—" }}</span></div>
+    </div>
+
+    <div class="eval-section">
+        <div class="eval-section-header">Section A: Presentation Evaluation</div>
+        <div class="eval-table-wrap">
+        <table class="eval-table eval-table-responsive">
+            <thead>
+                <tr><th>No.</th><th>Criteria</th><th>Max Marks</th><th>Marks Given</th></tr>
+            </thead>
+            <tbody>
+                {% for field, label, max_marks in section_a %}
+                <tr>
+                    <td data-label="No.">{{ forloop.counter }}</td>
+                    <td data-label="Criteria">{{ label }}</td>
+                    <td class="text-center" data-label="Max">{{ max_marks }}</td>
+                    <td data-label="Marks">
+                        <div class="marks-input-cell">
+                            <input type="number" name="{{ field }}" min="0" max="{{ max_marks }}" step="1"
+                                   class="marks-input marks-a" data-section="a" data-max-marks="{{ max_marks }}"
+                                   {% if not read_only %}required{% else %}readonly{% endif %}>
+                            <span class="marks-input-error" role="alert" aria-live="polite"></span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr class="subtotal-row">
+                    <td colspan="3"><strong>Subtotal (Section A)</strong></td>
+                    <td class="text-center"><strong id="subtotalA">—</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="eval-section">
+        <div class="eval-section-header">Section B: Research Work Evaluation</div>
+        <div class="eval-table-wrap">
+        <table class="eval-table eval-table-responsive">
+            <thead>
+                <tr><th>No.</th><th>Criteria</th><th>Max Marks</th><th>Marks Given</th></tr>
+            </thead>
+            <tbody>
+                {% for field, label, max_marks in section_b %}
+                <tr>
+                    <td data-label="No.">{{ forloop.counter }}</td>
+                    <td data-label="Criteria">{{ label }}</td>
+                    <td class="text-center" data-label="Max">{{ max_marks }}</td>
+                    <td data-label="Marks">
+                        <div class="marks-input-cell">
+                            <input type="number" name="{{ field }}" min="0" max="{{ max_marks }}" step="1"
+                                   class="marks-input marks-b" data-section="b" data-max-marks="{{ max_marks }}"
+                                   {% if not read_only %}required{% else %}readonly{% endif %}>
+                            <span class="marks-input-error" role="alert" aria-live="polite"></span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr class="subtotal-row">
+                    <td colspan="3"><strong>Subtotal (Section B)</strong></td>
+                    <td class="text-center"><strong id="subtotalB">—</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="eval-section">
+        <div class="eval-section-header">Section C: Final Score</div>
+        <div class="final-score-row">
+            <label>Final Score</label>
+            <span class="final-score-value" id="finalScore">—</span>
+            <span class="final-score-max">Out of (50)</span>
+        </div>
+    </div>
+
+    <div class="eval-section">
+        <div class="eval-section-header">Recommendation</div>
+        <div class="recommendation-options">
+            {% for value, label in recommendations %}
+            <label class="rec-option">
+                <input type="radio" name="recommendation" value="{{ value }}"
+                       {% if evaluation and evaluation.recommendation == value %}checked{% endif %}
+                       {% if not read_only %}required{% else %}disabled{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="eval-section">
+        <div class="eval-section-header">Session Chair Comments</div>
+        <textarea name="comments" class="eval-comments" rows="5" placeholder="Enter your comments..." {% if read_only %}readonly{% endif %}>{% if evaluation %}{{ evaluation.comments }}{% endif %}</textarea>
+    </div>
+
+    <div class="eval-actions">
+        <a href="{% url back_url_name %}?track={{ paper.day }}|{{ paper.track_session }}" class="btn btn-outline">← Back</a>
+        {% if not read_only %}
+        <button type="submit" class="btn btn-primary btn-lg">Submit Evaluation</button>
+        {% endif %}
+    </div>
+</form>
+
+{{ eval_values|json_script:"eval-values-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const evalValues = JSON.parse(document.getElementById('eval-values-data').textContent || '{}');
+    Object.keys(evalValues).forEach(function(field) {
+        const el = document.querySelector('[name="' + field + '"]');
+        if (el && evalValues[field] !== '' && evalValues[field] !== null) {
+            el.value = evalValues[field];
+        }
+    });
+
+    const sectionA = ['pres_clarity','originality','technical_knowledge','time_management','qa_handling'];
+    const sectionB = ['novelty','methodology','result_validation','impact','paper_quality'];
+
+    function sumFields(fields) {
+        let total = 0, complete = true;
+        fields.forEach(function(f) {
+            const el = document.querySelector('[name="' + f + '"]');
+            if (!el || el.value === '') { complete = false; return; }
+            total += parseInt(el.value, 10) || 0;
+        });
+        return complete ? total : null;
+    }
+
+    function getMaxMarks(inp) {
+        return parseInt(inp.getAttribute('max') || inp.dataset.maxMarks || '5', 10);
+    }
+
+    function validateMarksInput(inp, showWarning) {
+        const max = getMaxMarks(inp);
+        const err = inp.parentElement.querySelector('.marks-input-error');
+        const raw = inp.value.trim();
+
+        if (raw === '') {
+            inp.classList.remove('marks-input-invalid');
+            if (err) err.textContent = '';
+            return true;
+        }
+
+        let val = parseInt(raw, 10);
+        if (isNaN(val) || val < 0) {
+            inp.classList.add('marks-input-invalid');
+            if (err) err.textContent = 'Enter marks between 0 and ' + max;
+            return false;
+        }
+
+        if (val > max) {
+            inp.value = max;
+            inp.classList.add('marks-input-invalid');
+            if (err && showWarning) {
+                err.textContent = 'Enter marks ≤ ' + max + ' only';
+                clearTimeout(inp._marksWarnTimer);
+                inp._marksWarnTimer = setTimeout(function() {
+                    inp.classList.remove('marks-input-invalid');
+                    err.textContent = '';
+                }, 3000);
+            }
+            return true;
+        }
+
+        inp.classList.remove('marks-input-invalid');
+        if (err) err.textContent = '';
+        return true;
+    }
+
+    function updateTotals() {
+        const a = sumFields(sectionA);
+        const b = sumFields(sectionB);
+        document.getElementById('subtotalA').textContent = a !== null ? a : '—';
+        document.getElementById('subtotalB').textContent = b !== null ? b : '—';
+        document.getElementById('finalScore').textContent = (a !== null && b !== null) ? (a + b) : '—';
+    }
+
+    document.querySelectorAll('.marks-input').forEach(function(inp) {
+        inp.addEventListener('input', function() {
+            validateMarksInput(inp, true);
+            updateTotals();
+        });
+        inp.addEventListener('blur', function() {
+            validateMarksInput(inp, true);
+            updateTotals();
+        });
+    });
+
+    const evalForm = document.getElementById('evalForm');
+    if (evalForm) {
+        evalForm.addEventListener('submit', function(e) {
+            let valid = true;
+            document.querySelectorAll('.marks-input').forEach(function(inp) {
+                if (!validateMarksInput(inp, true)) valid = false;
+            });
+            if (!valid) {
+                e.preventDefault();
+                updateTotals();
+            }
+        });
+    }
+
+    updateTotals();
+});
+</script>
+{% endblock %}

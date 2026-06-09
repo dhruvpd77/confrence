@@ -1,4 +1,35 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebarClose = document.getElementById('sidebarClose');
+
+    function openSidebar() {
+        if (sidebar) sidebar.classList.add('open');
+        if (sidebarOverlay) sidebarOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('open');
+        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    if (menuToggle) menuToggle.addEventListener('click', openSidebar);
+    if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth <= 768) closeSidebar();
+        });
+    });
+
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 768) closeSidebar();
+    });
+
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('scheduleFile');
     const browseBtn = document.getElementById('browseBtn');
@@ -20,6 +51,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const downloadTrackBtn = document.getElementById('downloadTrackBtn');
     const downloadDayBtn = document.getElementById('downloadDayBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const trackDutyDaySelect = document.getElementById('trackDutyDaySelect');
+    const downloadTrackDutyBtn = document.getElementById('downloadTrackDutyBtn');
+    const downloadTrackDutyAllBtn = document.getElementById('downloadTrackDutyAllBtn');
 
     function getCsrfToken() {
         const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
@@ -137,10 +171,41 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (downloadTrackDutyBtn) {
+        downloadTrackDutyBtn.addEventListener('click', () => {
+            const day = trackDutyDaySelect.value;
+            if (!day) {
+                alert('Please select a day for track duty download.');
+                return;
+            }
+            triggerDownload('/download/track-duty/?day=' + encodeURIComponent(day));
+        });
+    }
+
+    if (downloadTrackDutyAllBtn) {
+        downloadTrackDutyAllBtn.addEventListener('click', () => {
+            triggerDownload('/download/track-duty/');
+        });
+    }
+
     document.querySelectorAll('.track-download-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const track = btn.dataset.track;
             triggerDownload('/download/track/?track=' + encodeURIComponent(track));
         });
     });
+
+    const verifierUploadZone = document.getElementById('verifierUploadZone');
+    const verifierFileInput = document.getElementById('verifierFile');
+    const verifierBrowseBtn = document.getElementById('verifierBrowseBtn');
+    const verifierUploadProgress = document.getElementById('verifierUploadProgress');
+    const verifierProgressFill = document.getElementById('verifierProgressFill');
+    const verifierProgressText = document.getElementById('verifierProgressText');
+    const verifierUploadResult = document.getElementById('verifierUploadResult');
+
+    if (verifierUploadZone && verifierFileInput) {
+        setupUploadZone(verifierUploadZone, verifierFileInput, verifierBrowseBtn, (file) => {
+            postFile('/upload/verifier/', 'verifier_file', file, verifierUploadProgress, verifierProgressFill, verifierProgressText, verifierUploadResult, 'Assigning verifiers...');
+        });
+    }
 });

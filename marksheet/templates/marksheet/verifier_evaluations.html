@@ -1,0 +1,111 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — Verify Evaluations{% endblock %}
+{% block page_title %}Verify Evaluations{% endblock %}
+{% block page_subtitle %}Review Moderator-2 marks, edit if needed, then lock track{% endblock %}
+
+{% block content %}
+<div class="panel panel-dark-header animate-fade-in">
+    <div class="panel-header">
+        <h2>Select Track Session</h2>
+    </div>
+    <div class="panel-body">
+        <form method="get" class="form-row form-row-stack-mobile">
+            <select name="track" class="form-select form-select-lg" onchange="this.form.submit()">
+                <option value="">— Select Track Session —</option>
+                {% for opt in track_options %}
+                <option value="{{ opt.key }}" {% if selected_track == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+{% if selected_track %}
+<div class="panel">
+    <div class="panel-body">
+        {% if track_locked %}
+        <div class="alert alert-info lock-banner">
+            🔒 <strong>Track Locked</strong> — Moderator-2 cannot edit. Locked at {{ lock_info.locked_at|date:"d M Y, H:i" }}.
+        </div>
+        {% else %}
+        <div class="lock-action-bar">
+            <p>After verifying all papers, lock this track to prevent Moderator-2 edits.</p>
+            <form method="post" action="{% url 'lock_track_session' %}">
+                {% csrf_token %}
+                <input type="hidden" name="track" value="{{ selected_track }}">
+                <button type="submit" class="btn btn-primary" onclick="return confirm('Lock this track? Moderator-2 will not be able to edit marks.');">
+                    🔒 Lock Track Session
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if papers %}
+<section class="eval-papers-section animate-fade-in">
+    <div class="section-head">
+        <h2>Papers to Verify</h2>
+        <span class="paper-count-badge">{{ papers|length }} papers</span>
+    </div>
+    <div class="table-wrapper desktop-only">
+        <table class="data-table data-table-corporate">
+            <thead>
+                <tr>
+                    <th>#</th><th>Paper ID</th><th>Title</th><th>Author</th><th>Status</th>
+                    <th>Mod-2 Entry</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for paper in papers %}
+                <tr>
+                    <td>{{ paper.serial_order }}</td>
+                    <td><code>{{ paper.paper_id }}</code></td>
+                    <td>{{ paper.paper_title }}</td>
+                    <td>{{ paper.author_name }}</td>
+                    <td>
+                        <span class="status-badge {% if paper.eval_status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
+                            {{ paper.eval_status }}
+                        </span>
+                    </td>
+                    <td>{% if paper.user_evaluation.moderator_entered_at %}{{ paper.user_evaluation.moderator_entered_at|date:"d M Y, H:i" }}{% else %}—{% endif %}</td>
+                    <td>
+                        <a href="{% url 'evaluation_form' paper.id %}" class="btn btn-sm btn-gold">
+                            {% if paper.eval_status == 'Completed' %}Review / Edit{% else %}Enter Marks{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="paper-cards mobile-only">
+        {% for paper in papers %}
+        <article class="paper-card">
+            <div class="paper-card-top">
+                <span class="paper-serial">#{{ paper.serial_order }}</span>
+                <span class="status-badge {% if paper.eval_status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
+                    {{ paper.eval_status }}
+                </span>
+            </div>
+            <code class="paper-id-tag">{{ paper.paper_id }}</code>
+            <h3 class="paper-card-title">{{ paper.paper_title }}</h3>
+            <div class="paper-card-meta">
+                <div><label>Author</label><span>{{ paper.author_name }}</span></div>
+                {% if paper.user_evaluation.moderator_entered_at %}
+                <div><label>Mod-2 Entry</label><span>{{ paper.user_evaluation.moderator_entered_at|date:"d M Y, H:i" }}</span></div>
+                {% endif %}
+            </div>
+            <a href="{% url 'evaluation_form' paper.id %}" class="btn btn-gold btn-full">
+                {% if paper.eval_status == 'Completed' %}Review / Edit{% else %}Enter Marks{% endif %}
+            </a>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% elif selected_track %}
+<div class="empty-state"><p>No papers in this track.</p></div>
+{% endif %}
+{% endblock %}

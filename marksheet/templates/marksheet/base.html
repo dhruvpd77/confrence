@@ -1,0 +1,115 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}ICRAET 2026{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="app-body">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo-row">
+                    <div class="sidebar-logo-wrap sidebar-logo-wrap-ljiet">
+                        <img src="{% static 'img/ljiet-logo-sif.png' %}" alt="LJIET" class="sidebar-logo sidebar-logo-ljiet">
+                    </div>
+                </div>
+                <div class="sidebar-brand-text">
+                    <strong>ICRAET 2026</strong>
+                    <span>Conference Management Portal</span>
+                </div>
+            </div>
+            <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu">✕</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <p class="nav-section-label">Menu</p>
+            {% if is_admin %}
+            <a href="{% url 'dashboard' %}" class="nav-item {% if sidebar_active == 'dashboard' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Dashboard
+            </a>
+            <a href="{% url 'admin_evaluations' %}" class="nav-item {% if sidebar_active == 'evaluations' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Evaluations
+            </a>
+            <a href="{% url 'evaluation_report' %}" class="nav-item {% if sidebar_active == 'reports' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Evaluation Reports
+            </a>
+            <a href="{% url 'results_ranking' %}" class="nav-item {% if sidebar_active == 'results' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Results
+            </a>
+            <a href="{% url 'download_faculty_credentials' %}" class="nav-item {% if sidebar_active == 'credentials' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Moderator-2 Credentials
+            </a>
+            <a href="{% url 'download_verifier_credentials' %}" class="nav-item">
+                <span class="nav-icon-svg">◆</span> Verifier Credentials
+            </a>
+            {% elif is_verifier %}
+            <a href="{% url 'verifier_dashboard' %}" class="nav-item {% if sidebar_active == 'duties' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> My Tracks
+            </a>
+            <a href="{% url 'verifier_evaluations' %}" class="nav-item {% if sidebar_active == 'evaluations' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Verify Evaluations
+            </a>
+            {% else %}
+            <a href="{% url 'faculty_dashboard' %}" class="nav-item {% if sidebar_active == 'duties' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> My Duties
+            </a>
+            <a href="{% url 'faculty_evaluations' %}" class="nav-item {% if sidebar_active == 'evaluations' %}active{% endif %}">
+                <span class="nav-icon-svg">◆</span> Evaluations
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">{% if is_admin %}A{% elif is_verifier %}V{% else %}{{ profile.display_name|slice:":1" }}{% endif %}</div>
+                <div class="user-block">
+                    <strong>{% if is_admin %}{{ user.username }}{% elif is_verifier %}{{ user.verifier_profile.display_name }}{% else %}{{ profile.display_name }}{% endif %}</strong>
+                    <span>{% if is_admin %}Super Admin{% elif is_verifier %}Verifier{% else %}Moderator-2{% endif %}</span>
+                </div>
+            </div>
+            <form method="post" action="{% url 'logout' %}" class="logout-form desktop-only">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sidebar-logout btn-full">Logout</button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="topbar-left">
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <p>{% block page_subtitle %}{% endblock %}</p>
+            </div>
+            <div class="topbar-right">
+                <form method="post" action="{% url 'logout' %}" class="topbar-logout-form mobile-only">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-topbar-logout" aria-label="Logout">Logout</button>
+                </form>
+                <img src="{% static 'img/ljiet-logo-sif.png' %}" alt="LJIET" class="topbar-logo topbar-logo-ljiet">
+                <span class="conference-badge topbar-date-badge">12–13 June 2026</span>
+                <img src="{% static 'img/lju-logo.png' %}" alt="LJ University" class="topbar-logo topbar-logo-lju">
+            </div>
+        </header>
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="app-footer">
+            <span>ICRAET 2026 · LJ University · LJIET</span>
+        </footer>
+    </div>
+
+    <script src="{% static 'js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

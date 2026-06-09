@@ -28,7 +28,7 @@ FIELD_MAP = {
 
 
 def get_default_template_path():
-    return Path(settings.BASE_DIR) / 'EVALUATION FORM (1).xlsx'
+    return Path(settings.DEFAULT_EVALUATION_TEMPLATE)
 
 
 def resolve_template_path(template_file=None):

@@ -1,0 +1,96 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — Evaluation Reports{% endblock %}
+{% block page_title %}Evaluation Reports{% endblock %}
+{% block page_subtitle %}Filter and review submitted evaluation marks{% endblock %}
+
+{% block content %}
+<div class="stats-grid stats-grid-sm">
+    <div class="stat-card stat-success">
+        <div class="stat-value">{{ completed_count }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card stat-warning">
+        <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-label">Pending</div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header panel-header-blue">
+        <h2>Filter Reports</h2>
+    </div>
+    <div class="panel-body">
+        <form method="get" class="filter-form">
+            <div class="form-row form-row-stack-mobile filter-form-row">
+                <select name="day" class="form-select">
+                    <option value="">All Days</option>
+                    {% for day in days %}
+                    <option value="{{ day }}" {% if selected_day == day %}selected{% endif %}>Day {{ day }}</option>
+                    {% endfor %}
+                </select>
+                <select name="track" class="form-select">
+                    <option value="">All Tracks</option>
+                    {% for opt in track_options %}
+                    <option value="{{ opt.key }}" {% if selected_track == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="faculty" class="form-select">
+                    <option value="">All Moderator-2</option>
+                    {% for f in faculty_list %}
+                    <option value="{{ f.user.id }}" {% if selected_faculty == f.user.id %}selected{% endif %}>{{ f.display_name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Apply Filter</button>
+                <a href="{% url 'download_evaluation_report' %}?day={{ selected_day|default:'' }}&track={{ selected_track|default:'' }}&faculty={{ selected_faculty|default:'' }}"
+                   class="btn btn-accent">Download Excel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-body">
+        <div class="table-wrapper">
+            <table class="data-table data-table-corporate data-table-responsive">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Track</th>
+                        <th>Paper ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                        <th>Mod-2 Time</th>
+                        <th>Verifier Lock</th>
+                        <th>Locked At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="{% if row.status == 'Pending' %}row-pending{% else %}row-done{% endif %}">
+                        <td data-label="Day">Day {{ row.paper.day }}</td>
+                        <td data-label="Track"><code>{{ row.paper.track_session }}</code></td>
+                        <td data-label="Paper ID"><code>{{ row.paper.paper_id }}</code></td>
+                        <td data-label="Title">{{ row.paper.paper_title|truncatechars:50 }}</td>
+                        <td data-label="Author">{{ row.paper.author_name }}</td>
+                        <td data-label="Status">
+                            <span class="status-badge {% if row.status == 'Completed' %}status-done{% else %}status-pending{% endif %}">
+                                {{ row.status }}
+                            </span>
+                        </td>
+                        <td data-label="Score">{% if row.final_score is not None %}{{ row.final_score }}/50{% else %}—{% endif %}</td>
+                        <td data-label="Mod-2 Time">{{ row.moderator_entered_at|default:"—" }}</td>
+                        <td data-label="Verifier Lock">{{ row.track_locked }}</td>
+                        <td data-label="Locked At">{{ row.verifier_locked_at|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="10" class="text-center">No papers found for selected filters.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

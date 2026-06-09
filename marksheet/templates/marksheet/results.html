@@ -1,0 +1,108 @@
+{% extends 'marksheet/base.html' %}
+
+{% block title %}ICRAET 2026 — Results{% endblock %}
+{% block page_title %}Results{% endblock %}
+{% block page_subtitle %}Top 5 presentations by evaluation marks{% endblock %}
+
+{% block content %}
+<div class="panel results-filter-panel">
+    <div class="panel-header panel-header-gold">
+        <h2>Filter Results</h2>
+        <p>Select day, track, and presentation type</p>
+    </div>
+    <div class="panel-body">
+        <form method="get" class="filter-form">
+            <div class="form-row form-row-stack-mobile filter-form-row">
+                <select name="day" class="form-select">
+                    <option value="">All Days</option>
+                    {% for day in days %}
+                    <option value="{{ day }}" {% if selected_day == day %}selected{% endif %}>Day {{ day }}</option>
+                    {% endfor %}
+                </select>
+                <select name="track" class="form-select">
+                    <option value="">All Tracks</option>
+                    {% for opt in track_options %}
+                    <option value="{{ opt.key }}" {% if selected_track == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="type" class="form-select">
+                    <option value="all" {% if selected_type == 'all' %}selected{% endif %}>All (Paper + Poster)</option>
+                    <option value="paper" {% if selected_type == 'paper' %}selected{% endif %}>Paper Only</option>
+                    <option value="poster" {% if selected_type == 'poster' %}selected{% endif %}>Poster Only</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Show Top 5</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<section class="panel results-panel">
+    <div class="panel-header results-panel-header">
+        <div class="results-header-text">
+            <h2>Top 5 Results</h2>
+            <p class="results-filter-summary">{{ filter_summary }}</p>
+        </div>
+        <span class="paper-count-badge">{{ top_results|length }} ranked</span>
+    </div>
+    <div class="panel-body">
+        {% if top_results %}
+        <div class="table-wrapper results-rank-list desktop-only">
+            <table class="data-table data-table-corporate">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Type</th>
+                        <th>Day</th>
+                        <th>Track</th>
+                        <th>Paper ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in top_results %}
+                    <tr class="results-row-rank-{{ row.rank }}">
+                        <td data-label="Rank"><span class="rank-badge rank-{{ row.rank }}">#{{ row.rank }}</span></td>
+                        <td data-label="Type"><span class="type-badge type-{{ row.type_label|lower }}">{{ row.type_label }}</span></td>
+                        <td data-label="Day">Day {{ row.day }}</td>
+                        <td data-label="Track">{{ row.track_name|default:row.track_session }}</td>
+                        <td data-label="Paper ID"><code>{{ row.paper_id }}</code></td>
+                        <td data-label="Title">{{ row.title }}</td>
+                        <td data-label="Author">{{ row.author }}</td>
+                        <td data-label="Score"><strong class="score-highlight">{{ row.score }}/50</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="results-cards mobile-only">
+            {% for row in top_results %}
+            <article class="result-card result-card-rank-{{ row.rank }}">
+                <div class="result-card-top">
+                    <span class="rank-badge rank-{{ row.rank }}">#{{ row.rank }}</span>
+                    <div class="result-card-top-right">
+                        <span class="type-badge type-{{ row.type_label|lower }}">{{ row.type_label }}</span>
+                        <span class="score-highlight">{{ row.score }}/50</span>
+                    </div>
+                </div>
+                <code class="paper-id-tag">{{ row.paper_id }}</code>
+                <h3 class="paper-card-title">{{ row.title }}</h3>
+                <div class="paper-card-meta">
+                    <div><label>Author</label><span>{{ row.author }}</span></div>
+                    <div><label>Day</label><span>Day {{ row.day }}</span></div>
+                    <div><label>Track</label><span>{{ row.track_name|default:row.track_session }}</span></div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No scored results yet</h3>
+            <p>No completed evaluations match your filters. Try another day/track or wait for marks to be entered.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
