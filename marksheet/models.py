@@ -118,6 +118,7 @@ class FacultyProfile(models.Model):
     normalized_name = models.CharField(max_length=200, db_index=True)
     plain_password = models.CharField(max_length=10, blank=True)
     phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
     schedule = models.ForeignKey(
         ScheduleUpload, on_delete=models.CASCADE, related_name='faculty_profiles', null=True, blank=True
     )
@@ -137,6 +138,7 @@ class VerifierProfile(models.Model):
     normalized_name = models.CharField(max_length=200, db_index=True)
     plain_password = models.CharField(max_length=10, blank=True)
     phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
     schedule = models.ForeignKey(
         ScheduleUpload, on_delete=models.CASCADE, related_name='verifier_profiles', null=True, blank=True
     )

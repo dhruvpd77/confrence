@@ -19,7 +19,16 @@ from .decorators import (
     verifier_required,
 )
 from .evaluation_config import RECOMMENDATION_OPTIONS, SECTION_A_CRITERIA, SECTION_B_CRITERIA
-from .models import FacultyProfile, MarksheetTemplate, Paper, PaperEvaluation, ScheduleUpload, TrackDuty, TrackSessionLock
+from .models import (
+    FacultyProfile,
+    MarksheetTemplate,
+    Paper,
+    PaperEvaluation,
+    ScheduleUpload,
+    TrackDuty,
+    TrackSessionLock,
+    VerifierProfile,
+)
 from .utils.evaluation_report import (
     build_evaluation_report_rows,
     generate_evaluation_report_workbook,
@@ -31,6 +40,7 @@ from .utils.evaluation_service import get_evaluations_for_papers, get_paper_eval
 from .utils.track_lock import get_locks_map, is_track_locked, lock_track
 from .utils.credential_email import send_credential_emails
 from .utils.credentials_service import (
+    build_credential_people,
     build_moderator_credential_rows,
     build_verifier_credential_rows,
     credential_stats,
@@ -627,16 +637,21 @@ def upload_verifier_assignments(request):
 @admin_required
 def moderator_credentials_page(request):
     active_schedule = _get_active_schedule()
+    profiles = list(get_moderator2_profiles(active_schedule)) if active_schedule else []
     rows = build_moderator_credential_rows(active_schedule) if active_schedule else []
+    people = build_credential_people(profiles)
     context = {
         'page_title': 'Moderator-2 Credentials',
         'page_subtitle': 'Login details, contact info & email for Moderator-2 (Entry)',
         'rows': rows,
+        'people': people,
+        'contact_type': 'moderator',
         'stats': credential_stats(rows) if rows else {
             'total_rows': 0, 'unique_people': 0, 'with_email': 0, 'without_email': 0,
         },
         'download_url': reverse('download_faculty_credentials'),
         'send_email_url': reverse('send_moderator_credentials_email'),
+        'update_contact_url': reverse('update_credential_contact'),
         'empty_message': 'No Moderator-2 credentials. Upload schedule Excel first.',
         'sidebar_active': 'credentials',
         'is_admin': True,
@@ -647,21 +662,62 @@ def moderator_credentials_page(request):
 @admin_required
 def verifier_credentials_page(request):
     active_schedule = _get_active_schedule()
+    profiles = list(get_verifier_profiles(active_schedule)) if active_schedule else []
     rows = build_verifier_credential_rows(active_schedule) if active_schedule else []
+    people = build_credential_people(profiles)
     context = {
         'page_title': 'Verifier Credentials',
         'page_subtitle': 'Login details, contact info & email for Verifiers',
         'rows': rows,
+        'people': people,
+        'contact_type': 'verifier',
         'stats': credential_stats(rows) if rows else {
             'total_rows': 0, 'unique_people': 0, 'with_email': 0, 'without_email': 0,
         },
         'download_url': reverse('download_verifier_credentials'),
         'send_email_url': reverse('send_verifier_credentials_email'),
+        'update_contact_url': reverse('update_credential_contact'),
         'empty_message': 'No verifier credentials. Upload verifier assignment Excel first.',
         'sidebar_active': 'verifier_credentials',
         'is_admin': True,
     }
     return render(request, 'marksheet/credentials_page.html', context)
+
+
+@admin_required
+@require_http_methods(['POST'])
+def update_credential_contact(request):
+    contact_type = request.POST.get('type', '').strip().lower()
+    profile_id = request.POST.get('profile_id', '').strip()
+    phone = request.POST.get('phone', '').strip()
+    email = request.POST.get('email', '').strip()
+
+    if contact_type not in ('moderator', 'verifier'):
+        return JsonResponse({'success': False, 'error': 'Invalid contact type.'}, status=400)
+
+    try:
+        profile_id = int(profile_id)
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid profile.'}, status=400)
+
+    if email and '@' not in email:
+        return JsonResponse({'success': False, 'error': 'Enter a valid email address.'}, status=400)
+
+    model = FacultyProfile if contact_type == 'moderator' else VerifierProfile
+    profile = model.objects.filter(pk=profile_id).first()
+    if not profile:
+        return JsonResponse({'success': False, 'error': 'Profile not found.'}, status=404)
+
+    profile.phone = phone
+    profile.email = email
+    profile.save(update_fields=['phone', 'email'])
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Contact saved for {profile.display_name}.',
+        'phone': phone,
+        'email': email,
+    })
 
 
 @admin_required

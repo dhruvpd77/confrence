@@ -32,6 +32,7 @@ urlpatterns = [
     path('credentials/verifier/', views.verifier_credentials_page, name='verifier_credentials'),
     path('credentials/moderator/send-email/', views.send_moderator_credentials_email, name='send_moderator_credentials_email'),
     path('credentials/verifier/send-email/', views.send_verifier_credentials_email, name='send_verifier_credentials_email'),
+    path('credentials/update-contact/', views.update_credential_contact, name='update_credential_contact'),
     path('download/credentials/', views.download_faculty_credentials, name='download_faculty_credentials'),
     path('download/verifier-credentials/', views.download_verifier_credentials, name='download_verifier_credentials'),
     path('download/evaluation-report/', views.download_evaluation_report, name='download_evaluation_report'),

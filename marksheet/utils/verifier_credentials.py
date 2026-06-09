@@ -154,12 +154,14 @@ def sync_verifier_users(schedule):
             first_name=display_name[:30],
         )
         phone = faculty_matcher.find_mobile(display_name) or ''
+        email = faculty_matcher.find_email(display_name) or ''
         profile = VerifierProfile.objects.create(
             user=user,
             display_name=display_name,
             normalized_name=norm,
             plain_password=password,
             phone=phone or '',
+            email=email,
             schedule=schedule,
         )
         created.append(profile)
@@ -196,8 +198,8 @@ def generate_verifier_credentials_workbook(profiles):
 
     row = 2
     for profile in profiles:
-        email = matcher.find_email(profile.display_name) or ''
-        phone = profile.phone or matcher.find_mobile(profile.display_name) or ''
+        from marksheet.utils.credentials_service import resolve_profile_contact
+        phone, email = resolve_profile_contact(profile, matcher)
         duties = get_verifier_duties(profile)
         for item in duties or [{'duty': None, 'roles': ['Verifier']}]:
             duty = item.get('duty')

@@ -9,11 +9,43 @@ from marksheet.utils.faculty_matcher import FacultyMatcher
 from marksheet.utils.verifier_credentials import get_verifier_duties, get_verifier_profiles
 
 
-def _contact_for_name(matcher, display_name, stored_phone=''):
-    contact = matcher.find_contact(display_name)
-    phone = stored_phone or contact['phone'] or ''
-    email = contact['email'] or ''
+def resolve_profile_contact(profile, matcher=None):
+    """Saved profile contact overrides fac data.xlsx lookup."""
+    matcher = matcher or FacultyMatcher()
+    phone = (profile.phone or '').strip()
+    email = (getattr(profile, 'email', '') or '').strip()
+    if not phone:
+        phone = matcher.find_mobile(profile.display_name) or ''
+    if not email:
+        email = matcher.find_email(profile.display_name) or ''
     return phone, email
+
+
+def _contact_for_name(matcher, display_name, stored_phone='', stored_email=''):
+    phone = (stored_phone or '').strip()
+    email = (stored_email or '').strip()
+    if not phone or not email:
+        contact = matcher.find_contact(display_name)
+        if not phone:
+            phone = contact['phone'] or ''
+        if not email:
+            email = contact['email'] or ''
+    return phone, email
+
+
+def build_credential_people(profiles):
+    matcher = FacultyMatcher()
+    people = []
+    for profile in profiles:
+        phone, email = resolve_profile_contact(profile, matcher)
+        people.append({
+            'profile_id': profile.id,
+            'name': profile.display_name,
+            'username': profile.user.username,
+            'phone': phone,
+            'email': email,
+        })
+    return people
 
 
 def _duty_row(duty):
@@ -30,7 +62,7 @@ def build_moderator_credential_rows(schedule):
     matcher = FacultyMatcher()
     rows = []
     for profile in get_moderator2_profiles(schedule):
-        phone, email = _contact_for_name(matcher, profile.display_name, profile.phone)
+        phone, email = resolve_profile_contact(profile, matcher)
         duties = get_faculty_duties(profile, schedule=schedule)
         base = {
             'profile_id': profile.id,
@@ -54,7 +86,7 @@ def build_verifier_credential_rows(schedule):
     matcher = FacultyMatcher()
     rows = []
     for profile in get_verifier_profiles(schedule):
-        phone, email = _contact_for_name(matcher, profile.display_name, profile.phone)
+        phone, email = resolve_profile_contact(profile, matcher)
         duties = get_verifier_duties(profile, schedule=schedule)
         base = {
             'profile_id': profile.id,
@@ -79,7 +111,7 @@ def group_moderator_email_recipients(schedule):
     matcher = FacultyMatcher()
     recipients = []
     for profile in get_moderator2_profiles(schedule):
-        phone, email = _contact_for_name(matcher, profile.display_name, profile.phone)
+        phone, email = resolve_profile_contact(profile, matcher)
         duty_rows = []
         for item in get_faculty_duties(profile, schedule=schedule):
             duty_rows.append(_duty_row(item['duty']))
@@ -100,7 +132,7 @@ def group_verifier_email_recipients(schedule):
     recipients = []
     matcher = FacultyMatcher()
     for profile in get_verifier_profiles(schedule):
-        phone, email = _contact_for_name(matcher, profile.display_name, profile.phone)
+        phone, email = resolve_profile_contact(profile, matcher)
         duty_rows = []
         for item in get_verifier_duties(profile, schedule=schedule):
             duty_rows.append(_duty_row(item['duty']))

@@ -134,12 +134,14 @@ def sync_faculty_users(schedule, duty_by_day, preserve_existing=True):
                 first_name=display_name[:30],
             )
             phone = faculty_matcher.find_mobile(display_name) or ''
+            email = faculty_matcher.find_email(display_name) or ''
             profile = FacultyProfile.objects.create(
                 user=user,
                 display_name=display_name,
                 normalized_name=norm,
                 plain_password=password,
                 phone=phone or '',
+                email=email,
                 schedule=schedule,
             )
             kept.append(profile)
@@ -161,12 +163,14 @@ def sync_faculty_users(schedule, duty_by_day, preserve_existing=True):
             first_name=display_name[:30],
         )
         phone = faculty_matcher.find_mobile(display_name) or ''
+        email = faculty_matcher.find_email(display_name) or ''
         profile = FacultyProfile.objects.create(
             user=user,
             display_name=display_name,
             normalized_name=norm,
             plain_password=password,
             phone=phone or '',
+            email=email,
             schedule=schedule,
         )
         created.append(profile)
@@ -245,8 +249,8 @@ def generate_credentials_workbook(profiles):
 
     row = 2
     for profile in profiles:
-        email = matcher.find_email(profile.display_name) or ''
-        phone = profile.phone or matcher.find_mobile(profile.display_name) or ''
+        from marksheet.utils.credentials_service import resolve_profile_contact
+        phone, email = resolve_profile_contact(profile, matcher)
         duties = get_faculty_duties(profile)
         if not duties:
             ws.cell(row, 1, profile.display_name)
