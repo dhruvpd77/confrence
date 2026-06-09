@@ -720,6 +720,43 @@ def update_credential_contact(request):
     })
 
 
+def _email_send_response(result):
+    if result.get('config_error'):
+        return JsonResponse({
+            'success': False,
+            'error': result['config_error'],
+            'sent': 0,
+            'failed': result.get('failed', []),
+        }, status=400)
+
+    if result['failed'] and result['sent'] == 0:
+        first = result['failed'][0]
+        return JsonResponse({
+            'success': False,
+            'error': f"Could not send email: {first.get('error', 'Unknown error')}",
+            'sent': 0,
+            'skipped_no_email': result['skipped_no_email'],
+            'failed': result['failed'],
+        }, status=400)
+
+    if result['sent'] == 0:
+        return JsonResponse({
+            'success': False,
+            'error': 'No emails sent. Add email addresses in the contact table first.',
+            'sent': 0,
+            'skipped_no_email': result['skipped_no_email'],
+            'failed': result.get('failed', []),
+        }, status=400)
+
+    return JsonResponse({
+        'success': True,
+        'sent': result['sent'],
+        'skipped_no_email': result['skipped_no_email'],
+        'failed': result.get('failed', []),
+        'message': f"Successfully sent {result['sent']} email(s). Check inbox and spam folder.",
+    })
+
+
 @admin_required
 @require_http_methods(['POST'])
 def send_moderator_credentials_email(request):
@@ -736,12 +773,7 @@ def send_moderator_credentials_email(request):
         login_url = f"{settings.SITE_URL}{reverse('login')}"
 
     result = send_credential_emails(recipients, login_url)
-    return JsonResponse({
-        'success': True,
-        'sent': result['sent'],
-        'skipped_no_email': result['skipped_no_email'],
-        'failed': result['failed'],
-    })
+    return _email_send_response(result)
 
 
 @admin_required
@@ -760,12 +792,7 @@ def send_verifier_credentials_email(request):
         login_url = f"{settings.SITE_URL}{reverse('login')}"
 
     result = send_credential_emails(recipients, login_url)
-    return JsonResponse({
-        'success': True,
-        'sent': result['sent'],
-        'skipped_no_email': result['skipped_no_email'],
-        'failed': result['failed'],
-    })
+    return _email_send_response(result)
 
 
 @admin_required

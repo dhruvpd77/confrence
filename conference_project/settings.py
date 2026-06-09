@@ -205,10 +205,12 @@ MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 SITE_URL = os.environ.get('DJANGO_SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 
-EMAIL_BACKEND = os.environ.get(
-    'DJANGO_EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend',
-)
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', '')
+if not EMAIL_BACKEND:
+    if os.environ.get('DJANGO_EMAIL_HOST_USER') and os.environ.get('DJANGO_EMAIL_HOST_PASSWORD'):
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    else:
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', '587'))
 EMAIL_USE_TLS = _env_bool('DJANGO_EMAIL_USE_TLS', default=True)
