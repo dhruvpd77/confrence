@@ -38,7 +38,7 @@ from .utils.results_service import get_top_scored_papers
 from .utils.schedule_sync import sync_papers
 from .utils.evaluation_service import get_evaluations_for_papers, get_paper_evaluation, save_paper_evaluation
 from .utils.track_lock import get_locks_map, is_track_locked, lock_track
-from .utils.credential_email import send_credential_emails
+from .utils.credential_email import get_portal_login_url, send_credential_emails, validate_email_config
 from .utils.credentials_service import (
     build_credential_people,
     build_moderator_credential_rows,
@@ -640,6 +640,7 @@ def moderator_credentials_page(request):
     profiles = list(get_moderator2_profiles(active_schedule)) if active_schedule else []
     rows = build_moderator_credential_rows(active_schedule) if active_schedule else []
     people = build_credential_people(profiles)
+    email_ok, email_status = validate_email_config()
     context = {
         'page_title': 'Moderator-2 Credentials',
         'page_subtitle': 'Login details, contact info & email for Moderator-2 (Entry)',
@@ -652,6 +653,8 @@ def moderator_credentials_page(request):
         'download_url': reverse('download_faculty_credentials'),
         'send_email_url': reverse('send_moderator_credentials_email'),
         'update_contact_url': reverse('update_credential_contact'),
+        'email_ready': email_ok,
+        'email_status': email_status,
         'empty_message': 'No Moderator-2 credentials. Upload schedule Excel first.',
         'sidebar_active': 'credentials',
         'is_admin': True,
@@ -665,6 +668,7 @@ def verifier_credentials_page(request):
     profiles = list(get_verifier_profiles(active_schedule)) if active_schedule else []
     rows = build_verifier_credential_rows(active_schedule) if active_schedule else []
     people = build_credential_people(profiles)
+    email_ok, email_status = validate_email_config()
     context = {
         'page_title': 'Verifier Credentials',
         'page_subtitle': 'Login details, contact info & email for Verifiers',
@@ -677,6 +681,8 @@ def verifier_credentials_page(request):
         'download_url': reverse('download_verifier_credentials'),
         'send_email_url': reverse('send_verifier_credentials_email'),
         'update_contact_url': reverse('update_credential_contact'),
+        'email_ready': email_ok,
+        'email_status': email_status,
         'empty_message': 'No verifier credentials. Upload verifier assignment Excel first.',
         'sidebar_active': 'verifier_credentials',
         'is_admin': True,
@@ -768,11 +774,7 @@ def send_moderator_credentials_email(request):
     if not recipients:
         return JsonResponse({'success': False, 'error': 'No Moderator-2 credentials found.'}, status=400)
 
-    login_url = request.build_absolute_uri(reverse('login'))
-    if not login_url.startswith('http'):
-        login_url = f"{settings.SITE_URL}{reverse('login')}"
-
-    result = send_credential_emails(recipients, login_url)
+    result = send_credential_emails(recipients, get_portal_login_url())
     return _email_send_response(result)
 
 
@@ -787,11 +789,7 @@ def send_verifier_credentials_email(request):
     if not recipients:
         return JsonResponse({'success': False, 'error': 'No verifier credentials found.'}, status=400)
 
-    login_url = request.build_absolute_uri(reverse('login'))
-    if not login_url.startswith('http'):
-        login_url = f"{settings.SITE_URL}{reverse('login')}"
-
-    result = send_credential_emails(recipients, login_url)
+    result = send_credential_emails(recipients, get_portal_login_url())
     return _email_send_response(result)
 
 

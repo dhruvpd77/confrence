@@ -203,7 +203,16 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024
 
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
-SITE_URL = os.environ.get('DJANGO_SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+SITE_URL = os.environ.get(
+    'DJANGO_SITE_URL',
+    'https://ljietConference7.pythonanywhere.com',
+).rstrip('/')
+
+SUPPORT_CONTACT_NAME = os.environ.get('DJANGO_SUPPORT_CONTACT_NAME', 'DHRUV PRAJAPATI')
+SUPPORT_CONTACT_EMAIL = os.environ.get(
+    'DJANGO_SUPPORT_CONTACT_EMAIL',
+    'dhruv.prajapati@ljku.edu.in',
+)
 
 EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', '')
 if not EMAIL_BACKEND:

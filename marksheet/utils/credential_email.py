@@ -5,6 +5,12 @@ import logging
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
+from django.urls import reverse
+
+
+def get_portal_login_url():
+    """Always use configured production portal URL in credential emails."""
+    return f"{settings.SITE_URL}{reverse('login')}"
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +101,11 @@ def send_credential_emails(recipients, login_url):
             html = render_to_string('marksheet/emails/credential_email.html', {
                 'person': person,
                 'login_url': login_url,
+                'portal_url': settings.SITE_URL,
                 'site_name': 'ICRAET 2026',
                 'org_name': 'LJIET — Lok Jagruti University',
+                'support_name': settings.SUPPORT_CONTACT_NAME,
+                'support_email': settings.SUPPORT_CONTACT_EMAIL,
             })
             subject = (
                 f"ICRAET 2026 — Your {person.get('role_label', 'Portal')} Login Credentials"
@@ -105,7 +114,9 @@ def send_credential_emails(recipients, login_url):
                 f"Dear {person.get('name', '')},\n\n"
                 f"Login: {person.get('username', '')}\n"
                 f"Password: {person.get('password', '')}\n"
-                f"Portal: {login_url}\n"
+                f"Portal: {login_url}\n\n"
+                f"Any query contact: {settings.SUPPORT_CONTACT_NAME}\n"
+                f"Email: {settings.SUPPORT_CONTACT_EMAIL}\n"
             )
             message = EmailMultiAlternatives(
                 subject=subject,
