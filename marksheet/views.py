@@ -116,27 +116,70 @@ def _format_track_option_label(day, track_session, track_name, count, locked_lab
     return f'{label}{locked_label}'
 
 
+def _make_track_key(day, track_session, track_name='', multi_name=False):
+    """Build a track filter key; append track_name when poster groups share a session."""
+    if multi_name and track_name:
+        return f'{day}|{track_session}|{track_name}'
+    return f'{day}|{track_session}'
+
+
+def _parse_track_key(track_key):
+    """Return (day, track_session, track_name) — track_name is None when not in key."""
+    if not track_key or '|' not in track_key:
+        return None, None, None
+    parts = track_key.split('|')
+    try:
+        day = int(parts[0])
+    except (ValueError, IndexError):
+        return None, None, None
+    if len(parts) == 2:
+        return day, parts[1], None
+    track_session = parts[1]
+    track_name = '|'.join(parts[2:])
+    return day, track_session, track_name or None
+
+
+def _apply_track_key_filter(qs, track_key):
+    day, track_session, track_name = _parse_track_key(track_key)
+    if day is None or not track_session:
+        return qs
+    qs = qs.filter(day=day, track_session=track_session)
+    if track_name:
+        qs = qs.filter(track_name=track_name)
+    return qs
+
+
 def _build_track_options(papers):
     tracks = []
     if not papers.exists():
         return tracks
-    track_data = (
+    track_data = list(
         papers.values('track_session', 'track_name', 'day')
         .distinct()
-        .order_by('day', 'track_session')
+        .order_by('day', 'track_session', 'track_name')
     )
+    session_name_counts = {}
     for item in track_data:
-        count = papers.filter(
-            track_session=item['track_session'], day=item['day']
-        ).count()
+        session_key = (item['day'], item['track_session'])
+        session_name_counts[session_key] = session_name_counts.get(session_key, 0) + 1
+
+    for item in track_data:
+        day = item['day']
+        track_session = item['track_session']
+        track_name = item['track_name'] or ''
+        multi_name = session_name_counts.get((day, track_session), 0) > 1
+
+        filters = {'day': day, 'track_session': track_session}
+        if multi_name and track_name:
+            filters['track_name'] = track_name
+        count = papers.filter(**filters).count()
+
         tracks.append({
-            'key': f"{item['day']}|{item['track_session']}",
-            'label': _format_track_option_label(
-                item['day'], item['track_session'], item['track_name'], count
-            ),
-            'track_session': item['track_session'],
-            'track_name': item['track_name'],
-            'day': item['day'],
+            'key': _make_track_key(day, track_session, track_name, multi_name=multi_name),
+            'label': _format_track_option_label(day, track_session, track_name, count),
+            'track_session': track_session,
+            'track_name': track_name,
+            'day': day,
             'count': count,
         })
     return tracks
@@ -380,23 +423,16 @@ def admin_evaluations(request):
     papers = []
 
     if track_key and '|' in track_key:
-        day_str, track_session = track_key.split('|', 1)
-        try:
-            day = int(day_str)
-        except ValueError:
-            day = None
-        if day:
-            papers = list(
-                papers_qs.filter(day=day, track_session=track_session)
-                .order_by('serial_order')
+        papers = list(
+            _apply_track_key_filter(papers_qs, track_key).order_by('serial_order')
+        )
+        evaluations = get_evaluations_for_papers(papers)
+        for paper in papers:
+            paper.user_evaluation = evaluations.get(paper.id)
+            paper.eval_status = (
+                'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
+                else 'Pending'
             )
-            evaluations = get_evaluations_for_papers(papers)
-            for paper in papers:
-                paper.user_evaluation = evaluations.get(paper.id)
-                paper.eval_status = (
-                    'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
-                    else 'Pending'
-                )
 
     context = {
         'track_options': track_options,
@@ -430,11 +466,7 @@ def evaluation_report(request):
     if day:
         filtered = filtered.filter(day=day)
     if track_key and '|' in track_key:
-        day_str, track_session = track_key.split('|', 1)
-        try:
-            filtered = filtered.filter(day=int(day_str), track_session=track_session)
-        except ValueError:
-            pass
+        filtered = _apply_track_key_filter(filtered, track_key)
 
     if faculty_id:
         profile = FacultyProfile.objects.filter(user_id=faculty_id).first()
@@ -497,11 +529,7 @@ def results_ranking(request):
     if day:
         filtered = filtered.filter(day=day)
     if track_key and '|' in track_key:
-        day_str, track_session = track_key.split('|', 1)
-        try:
-            filtered = filtered.filter(day=int(day_str), track_session=track_session)
-        except ValueError:
-            pass
+        filtered = _apply_track_key_filter(filtered, track_key)
 
     track_options_qs = papers_qs.filter(day=day) if day else papers_qs
     days = sorted(set(papers_qs.values_list('day', flat=True)))
@@ -561,11 +589,7 @@ def download_evaluation_report(request):
     if day:
         papers_qs = papers_qs.filter(day=day)
     if track_key and '|' in track_key:
-        day_str, track_session = track_key.split('|', 1)
-        try:
-            papers_qs = papers_qs.filter(day=int(day_str), track_session=track_session)
-        except ValueError:
-            pass
+        papers_qs = _apply_track_key_filter(papers_qs, track_key)
 
     if faculty_id:
         profile = FacultyProfile.objects.filter(user_id=faculty_id).first()
@@ -1073,21 +1097,18 @@ def download_track_marksheets(request):
     if not track_key:
         return HttpResponse('Track not selected.', status=400)
 
-    try:
-        day, track_session = track_key.split('|', 1)
-        day = int(day)
-    except ValueError:
-        return HttpResponse('Invalid track selection.', status=400)
-
     active_schedule = _get_active_schedule()
     if not active_schedule:
         return HttpResponse('No schedule uploaded.', status=404)
 
+    day, track_session, track_name = _parse_track_key(track_key)
+    if day is None or not track_session:
+        return HttpResponse('Invalid track selection.', status=400)
+
     papers = list(
-        Paper.objects.filter(
-            schedule=active_schedule,
-            day=day,
-            track_session=track_session,
+        _apply_track_key_filter(
+            Paper.objects.filter(schedule=active_schedule),
+            track_key,
         ).order_by('serial_order')
     )
 
@@ -1097,7 +1118,7 @@ def download_track_marksheets(request):
     buffer = generate_marksheet_workbook(
         papers, sheet_name_fn=track_sheet_name, template_path=_get_active_template_path()
     )
-    safe_track = track_session.replace(' ', '_')
+    safe_track = (track_name or track_session).replace(' ', '_').replace('|', '_')
     filename = f'ICRAET2026_Marksheets_D{day}_{safe_track}.xlsx'
 
     response = HttpResponse(
