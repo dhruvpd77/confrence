@@ -70,6 +70,7 @@ from .utils.faculty_credentials import (
     generate_credentials_workbook,
     get_faculty_duties,
     get_faculty_track_keys,
+    repair_poster_track_duties,
     get_moderator2_profiles,
     sync_faculty_users,
     sync_track_duties,
@@ -266,6 +267,8 @@ def faculty_dashboard(request):
 def faculty_evaluations(request):
     profile = request.user.faculty_profile
     active_schedule = _get_active_schedule() or profile.schedule
+    if active_schedule:
+        repair_poster_track_duties(active_schedule)
     track_keys = get_faculty_track_keys(profile, schedule=active_schedule)
     track_key = request.GET.get('track')
 
@@ -866,6 +869,8 @@ def verifier_dashboard(request):
 def verifier_evaluations(request):
     profile = request.user.verifier_profile
     active_schedule = _get_active_schedule() or profile.schedule
+    if active_schedule:
+        repair_poster_track_duties(active_schedule)
     track_keys = get_verifier_track_keys(profile, schedule=active_schedule)
     track_key = request.GET.get('track')
 

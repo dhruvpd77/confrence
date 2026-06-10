@@ -78,14 +78,33 @@ def _is_poster_section_header(sr_str, room, track_session, paper_title):
     return False
 
 
-def _activate_poster_session(room, sr_str='', existing_room=''):
+def normalize_poster_room(value):
+    """Normalize poster venue labels to match Paper.room (e.g. AUDI_ARCHITECTURE)."""
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    if text.isdigit():
+        return text
+    text = re.sub(r'\s*poster\s*$', '', text, flags=re.I).strip()
+    text = re.sub(r'[^a-zA-Z0-9]+', '_', text).strip('_')
+    return text
+
+
+def _activate_poster_session(room, sr_str='', existing_room='', label_room=''):
     session_label = 'POSTER PRESENTATION'
-    poster_room = _resolve_poster_room(room, sr_str) or _resolve_poster_room(existing_room)
-    return (
-        poster_room or str(room or '').strip(),
-        session_label,
-        poster_display_name(poster_room or str(room or '').strip(), session_label),
-    )
+    for candidate in (room, label_room, existing_room):
+        if not candidate:
+            continue
+        poster_room = _resolve_poster_room(candidate, sr_str) or normalize_poster_room(candidate)
+        if poster_room:
+            if not str(poster_room).isdigit():
+                poster_room = normalize_poster_room(poster_room) or poster_room
+            return (
+                poster_room,
+                session_label,
+                poster_display_name(poster_room, session_label),
+            )
+    return ('', session_label, session_label)
 
 
 def _poster_session_key(header_part, track_name_col):
@@ -202,7 +221,7 @@ def _apply_pipe_header(parts, track_session, current_room):
 def _apply_poster_title_header(sr_str, room, paper_title, track_session='', existing_room=''):
     """Header rows: POSTER PRESENTATION in any column, SR like 503 day1 or S(I)_day1."""
     current_room, current_track_session, current_track_name = _activate_poster_session(
-        room, sr_str, existing_room
+        room, sr_str, existing_room, label_room=track_session or paper_title
     )
     return current_room, current_track_session, current_track_name
 

@@ -79,7 +79,28 @@ def sync_track_duties(schedule, duty_by_day, preserve_verifier=True):
                 verifier=verifier,
             ))
     TrackDuty.objects.bulk_create(duties)
+    repair_poster_track_duties(schedule)
     return duties
+
+
+def repair_poster_track_duties(schedule):
+    """Fix poster TrackDuty rows missing room / track_name (e.g. AUDI_ARCHITECTURE)."""
+    from marksheet.utils.excel_parser import poster_display_name
+    from marksheet.utils.track_keys import _resolve_poster_duty_room
+
+    for duty in TrackDuty.objects.filter(schedule=schedule, track_session='POSTER PRESENTATION'):
+        if duty.track_name and '|' in duty.track_name and duty.room:
+            continue
+
+        room = _resolve_poster_duty_room(duty)
+        if not room:
+            continue
+
+        expected_name = poster_display_name(room, duty.track_session)
+        if duty.room != room or duty.track_name != expected_name:
+            duty.room = room
+            duty.track_name = expected_name
+            duty.save(update_fields=['room', 'track_name'])
 
 
 def sync_faculty_users(schedule, duty_by_day, preserve_existing=True):

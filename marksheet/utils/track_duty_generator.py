@@ -68,7 +68,9 @@ def parse_track_duty(file_path):
             room_col = worksheet.cell(row, 2).value
 
             if _is_poster_section_header(sr_str, room_col, track_name, paper_title):
-                room, track_session, track_name = _activate_poster_session(room_col, sr_str)
+                room, track_session, track_name = _activate_poster_session(
+                    room_col, sr_str, label_room=track_name or paper_title
+                )
                 track_session = 'POSTER PRESENTATION'
                 session_chair = worksheet.cell(row, 8).value or ''
                 track_coordinator = worksheet.cell(row, 9).value or ''
