@@ -149,6 +149,137 @@ def _apply_track_key_filter(qs, track_key):
     return qs
 
 
+def _get_duty_track_entries(duty_items):
+    entries = []
+    seen = set()
+    for item in duty_items:
+        duty = item['duty']
+        track_name = duty.track_name or ''
+        key_tuple = (duty.day, duty.track_session, track_name)
+        if key_tuple in seen:
+            continue
+        seen.add(key_tuple)
+        entries.append({
+            'day': duty.day,
+            'track_session': duty.track_session,
+            'track_name': track_name,
+            'duty': duty,
+        })
+    return entries
+
+
+def _build_duty_track_options(duty_entries, all_papers, locks_map=None):
+    session_name_counts = {}
+    for entry in duty_entries:
+        session_key = (entry['day'], entry['track_session'])
+        session_name_counts[session_key] = session_name_counts.get(session_key, 0) + 1
+
+    options = []
+    for entry in sorted(
+        duty_entries,
+        key=lambda item: (item['day'], item['track_session'], item['track_name']),
+    ):
+        day = entry['day']
+        track_session = entry['track_session']
+        track_name = entry['track_name']
+        multi_name = session_name_counts.get((day, track_session), 0) > 1
+
+        filters = {'day': day, 'track_session': track_session}
+        if multi_name and track_name:
+            filters['track_name'] = track_name
+        count = all_papers.filter(**filters).count()
+
+        locked_label = ''
+        if locks_map:
+            lock = locks_map.get((day, track_session))
+            if lock and lock.is_locked:
+                locked_label = ' [LOCKED]'
+
+        options.append({
+            'key': _make_track_key(day, track_session, track_name, multi_name=multi_name),
+            'label': _format_track_option_label(
+                day, track_session, track_name, count, locked_label
+            ),
+        })
+    return options
+
+
+def _duty_matches_track_key(entry, track_key):
+    day, track_session, track_name = _parse_track_key(track_key)
+    if day is None or not track_session:
+        return False
+    if entry['day'] != day or entry['track_session'] != track_session:
+        return False
+    if track_name:
+        return (entry['track_name'] or '') == track_name
+    return True
+
+
+def _any_duty_matches_track_key(duty_entries, track_key):
+    return any(_duty_matches_track_key(entry, track_key) for entry in duty_entries)
+
+
+def _enrich_duty_items_with_track_keys(duty_items):
+    entries = _get_duty_track_entries(duty_items)
+    session_name_counts = {}
+    for entry in entries:
+        session_key = (entry['day'], entry['track_session'])
+        session_name_counts[session_key] = session_name_counts.get(session_key, 0) + 1
+
+    entry_keys = {}
+    for entry in entries:
+        duty = entry['duty']
+        multi_name = session_name_counts.get((duty.day, duty.track_session), 0) > 1
+        entry_keys[id(duty)] = _make_track_key(
+            duty.day, duty.track_session, duty.track_name or '', multi_name=multi_name
+        )
+
+    for item in duty_items:
+        item['track_key'] = entry_keys.get(id(item['duty']), '')
+    return duty_items
+
+
+def _paper_matches_duty(paper, duty):
+    if paper.day != duty.day or paper.track_session != duty.track_session:
+        return False
+    if duty.track_name and paper.track_name and duty.track_name != paper.track_name:
+        return False
+    return True
+
+
+def _faculty_can_evaluate_paper(profile, paper):
+    for item in get_faculty_duties(profile, schedule=paper.schedule, day=paper.day):
+        if _paper_matches_duty(paper, item['duty']):
+            return True
+    return False
+
+
+def _verifier_can_evaluate_paper(profile, paper):
+    for item in get_verifier_duties(profile, schedule=paper.schedule, day=paper.day):
+        if _paper_matches_duty(paper, item['duty']):
+            return True
+    return False
+
+
+def _paper_track_key(paper):
+    multi_name = (
+        Paper.objects.filter(
+            schedule=paper.schedule,
+            day=paper.day,
+            track_session=paper.track_session,
+        )
+        .values('track_name')
+        .distinct()
+        .count() > 1
+    )
+    return _make_track_key(
+        paper.day,
+        paper.track_session,
+        paper.track_name or '',
+        multi_name=multi_name,
+    )
+
+
 def _build_track_options(papers):
     tracks = []
     if not papers.exists():
@@ -268,7 +399,9 @@ def faculty_dashboard(request):
     except ValueError:
         selected_day = None
 
-    duties = get_faculty_duties(profile, schedule=active_schedule, day=selected_day)
+    duties = _enrich_duty_items_with_track_keys(
+        get_faculty_duties(profile, schedule=active_schedule, day=selected_day)
+    )
     days = sorted(set(
         TrackDuty.objects.filter(schedule=active_schedule).values_list('day', flat=True)
     )) if active_schedule else []
@@ -289,7 +422,9 @@ def faculty_dashboard(request):
 def faculty_evaluations(request):
     profile = request.user.faculty_profile
     active_schedule = _get_active_schedule() or profile.schedule
-    track_keys = get_faculty_track_keys(profile, schedule=active_schedule)
+    duty_entries = _get_duty_track_entries(
+        get_faculty_duties(profile, schedule=active_schedule)
+    )
     track_key = request.GET.get('track')
 
     track_options = []
@@ -298,40 +433,28 @@ def faculty_evaluations(request):
     track_locked = False
     verifier_info = None
 
-    if active_schedule and track_keys:
+    if active_schedule and duty_entries:
         all_papers = Paper.objects.filter(schedule=active_schedule)
-        for day, track_session in sorted(track_keys):
-            key = f'{day}|{track_session}'
-            count = all_papers.filter(day=day, track_session=track_session).count()
-            sample = all_papers.filter(day=day, track_session=track_session).first()
-            track_name = sample.track_name if sample else ''
-            track_options.append({
-                'key': key,
-                'label': _format_track_option_label(day, track_session, track_name, count),
-            })
+        track_options = _build_duty_track_options(duty_entries, all_papers)
 
-        if track_key and '|' in track_key:
-            day_str, track_session = track_key.split('|', 1)
-            try:
-                day = int(day_str)
-            except ValueError:
-                day = None
-            if day and (day, track_session) in track_keys:
-                papers = list(
-                    all_papers.filter(day=day, track_session=track_session)
-                    .order_by('serial_order')
+        if track_key and '|' in track_key and _any_duty_matches_track_key(duty_entries, track_key):
+            day, track_session, track_name = _parse_track_key(track_key)
+            papers = list(
+                _apply_track_key_filter(all_papers, track_key).order_by('serial_order')
+            )
+            selected_track = track_key
+            evaluations = get_evaluations_for_papers(papers)
+            track_locked = is_track_locked(active_schedule, day, track_session)
+            verifier_info = get_track_verifier_contact(
+                active_schedule, day, track_session, track_name=track_name
+            )
+            for paper in papers:
+                paper.user_evaluation = evaluations.get(paper.id)
+                paper.eval_status = (
+                    'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
+                    else 'Pending'
                 )
-                selected_track = track_key
-                evaluations = get_evaluations_for_papers(papers)
-                track_locked = is_track_locked(active_schedule, day, track_session)
-                verifier_info = get_track_verifier_contact(active_schedule, day, track_session)
-                for paper in papers:
-                    paper.user_evaluation = evaluations.get(paper.id)
-                    paper.eval_status = (
-                        'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
-                        else 'Pending'
-                    )
-                    paper.track_locked = track_locked
+                paper.track_locked = track_locked
 
     context = {
         'profile': profile,
@@ -359,15 +482,13 @@ def evaluation_form(request, paper_id):
         role = PaperEvaluation.ROLE_VERIFIER
         back_url_name = 'verifier_evaluations'
         profile = request.user.verifier_profile
-        track_keys = get_verifier_track_keys(profile, schedule=paper.schedule, day=paper.day)
-        if (paper.day, paper.track_session) not in track_keys:
+        if not _verifier_can_evaluate_paper(profile, paper):
             return HttpResponse('You are not assigned to verify this track session.', status=403)
     elif is_faculty:
         role = PaperEvaluation.ROLE_MODERATOR
         back_url_name = 'faculty_evaluations'
         profile = request.user.faculty_profile
-        track_keys = get_faculty_track_keys(profile, schedule=paper.schedule, day=paper.day)
-        if (paper.day, paper.track_session) not in track_keys:
+        if not _faculty_can_evaluate_paper(profile, paper):
             return HttpResponse('You are not assigned to this track session.', status=403)
         if is_track_locked(paper.schedule, paper.day, paper.track_session):
             return HttpResponse('This track is locked by the verifier. Editing is not allowed.', status=403)
@@ -387,7 +508,10 @@ def evaluation_form(request, paper_id):
             return HttpResponse('This track is locked. You cannot edit marks.', status=403)
         data = _parse_evaluation_form(request)
         evaluation = save_paper_evaluation(paper, request.user, data, role)
-        return redirect(f"{reverse(back_url_name)}?track={paper.day}|{paper.track_session}")
+        from urllib.parse import quote
+        return redirect(
+            f"{reverse(back_url_name)}?track={quote(_paper_track_key(paper), safe='')}"
+        )
 
     eval_values = {}
     if evaluation:
@@ -410,6 +534,7 @@ def evaluation_form(request, paper_id):
         'track_lock': track_lock,
         'read_only': is_faculty and bool(track_lock),
         'back_url_name': back_url_name,
+        'back_track_key': _paper_track_key(paper),
     }
     return render(request, 'marksheet/evaluation_form.html', context)
 
@@ -859,6 +984,7 @@ def verifier_dashboard(request):
             'is_locked': bool(lock and lock.is_locked),
             'locked_at': lock.locked_at if lock else None,
         })
+    duty_items = _enrich_duty_items_with_track_keys(duty_items)
 
     days = sorted(set(
         TrackDuty.objects.filter(schedule=active_schedule).exclude(verifier='').values_list('day', flat=True)
@@ -879,7 +1005,9 @@ def verifier_dashboard(request):
 def verifier_evaluations(request):
     profile = request.user.verifier_profile
     active_schedule = _get_active_schedule() or profile.schedule
-    track_keys = get_verifier_track_keys(profile, schedule=active_schedule)
+    duty_entries = _get_duty_track_entries(
+        get_verifier_duties(profile, schedule=active_schedule)
+    )
     track_key = request.GET.get('track')
 
     track_options = []
@@ -888,44 +1016,26 @@ def verifier_evaluations(request):
     track_locked = False
     lock_info = None
 
-    if active_schedule and track_keys:
+    if active_schedule and duty_entries:
         all_papers = Paper.objects.filter(schedule=active_schedule)
         locks = get_locks_map(active_schedule)
-        for day, track_session in sorted(track_keys):
-            key = f'{day}|{track_session}'
-            count = all_papers.filter(day=day, track_session=track_session).count()
-            sample = all_papers.filter(day=day, track_session=track_session).first()
-            track_name = sample.track_name if sample else ''
-            lk = locks.get((day, track_session))
-            locked_label = ' [LOCKED]' if lk and lk.is_locked else ''
-            track_options.append({
-                'key': key,
-                'label': _format_track_option_label(
-                    day, track_session, track_name, count, locked_label
-                ),
-            })
+        track_options = _build_duty_track_options(duty_entries, all_papers, locks_map=locks)
 
-        if track_key and '|' in track_key:
-            day_str, track_session = track_key.split('|', 1)
-            try:
-                day = int(day_str)
-            except ValueError:
-                day = None
-            if day and (day, track_session) in track_keys:
-                papers = list(
-                    all_papers.filter(day=day, track_session=track_session)
-                    .order_by('serial_order')
+        if track_key and '|' in track_key and _any_duty_matches_track_key(duty_entries, track_key):
+            day, track_session, _track_name = _parse_track_key(track_key)
+            papers = list(
+                _apply_track_key_filter(all_papers, track_key).order_by('serial_order')
+            )
+            selected_track = track_key
+            evaluations = get_evaluations_for_papers(papers)
+            lock_info = locks.get((day, track_session))
+            track_locked = bool(lock_info and lock_info.is_locked)
+            for paper in papers:
+                paper.user_evaluation = evaluations.get(paper.id)
+                paper.eval_status = (
+                    'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
+                    else 'Pending'
                 )
-                selected_track = track_key
-                evaluations = get_evaluations_for_papers(papers)
-                lock_info = locks.get((day, track_session))
-                track_locked = bool(lock_info and lock_info.is_locked)
-                for paper in papers:
-                    paper.user_evaluation = evaluations.get(paper.id)
-                    paper.eval_status = (
-                        'Completed' if paper.user_evaluation and paper.user_evaluation.is_complete
-                        else 'Pending'
-                    )
 
     context = {
         'profile': profile,
@@ -946,20 +1056,21 @@ def lock_track_session(request):
     if not track_key or '|' not in track_key:
         return JsonResponse({'success': False, 'error': 'Invalid track.'}, status=400)
 
-    day_str, track_session = track_key.split('|', 1)
-    try:
-        day = int(day_str)
-    except ValueError:
+    day, track_session, _track_name = _parse_track_key(track_key)
+    if day is None or not track_session:
         return JsonResponse({'success': False, 'error': 'Invalid day.'}, status=400)
 
     profile = request.user.verifier_profile
     active_schedule = _get_active_schedule() or profile.schedule
-    track_keys = get_verifier_track_keys(profile, schedule=active_schedule, day=day)
-    if (day, track_session) not in track_keys:
+    duty_entries = _get_duty_track_entries(
+        get_verifier_duties(profile, schedule=active_schedule, day=day)
+    )
+    if not _any_duty_matches_track_key(duty_entries, track_key):
         return JsonResponse({'success': False, 'error': 'Not your assigned track.'}, status=403)
 
     lock_track(active_schedule, day, track_session, request.user)
-    return redirect(f"{reverse('verifier_evaluations')}?track={day}|{track_session}")
+    from urllib.parse import quote
+    return redirect(f"{reverse('verifier_evaluations')}?track={quote(track_key, safe='')}")
 
 
 @admin_required

@@ -83,20 +83,20 @@ def get_verifier_profiles(schedule):
     return VerifierProfile.objects.filter(schedule=schedule).select_related('user').order_by('display_name')
 
 
-def get_track_verifier_contact(schedule, day, track_session):
+def get_track_verifier_contact(schedule, day, track_session, track_name=None):
     """Verifier name and phone for a track session (Moderator-2 evaluations view)."""
     if not schedule:
         return None
 
-    duty = (
-        TrackDuty.objects.filter(
-            schedule=schedule,
-            day=day,
-            track_session=track_session,
-        )
-        .exclude(verifier='')
-        .first()
-    )
+    duties = TrackDuty.objects.filter(
+        schedule=schedule,
+        day=day,
+        track_session=track_session,
+    ).exclude(verifier='')
+    if track_name:
+        duty = duties.filter(track_name=track_name).first() or duties.first()
+    else:
+        duty = duties.first()
     if not duty:
         return None
 

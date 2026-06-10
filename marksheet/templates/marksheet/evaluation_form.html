@@ -131,7 +131,7 @@
     </div>
 
     <div class="eval-actions">
-        <a href="{% url back_url_name %}?track={{ paper.day }}|{{ paper.track_session }}" class="btn btn-outline">← Back</a>
+        <a href="{% url back_url_name %}?track={{ back_track_key|urlencode }}" class="btn btn-outline">← Back</a>
         {% if not read_only %}
         <button type="submit" class="btn btn-primary btn-lg">Submit Evaluation</button>
         {% endif %}

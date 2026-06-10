@@ -40,7 +40,7 @@
             <div class="staff-item"><label>Moderator-2 (Entry)</label><span>{{ duty.moderator_2|default:"—" }}</span></div>
             <div class="staff-item"><label>Moderator-3 (Zoom)</label><span>{{ duty.moderator_3|default:"—" }}</span></div>
         </div>
-        <a href="{% url 'faculty_evaluations' %}?track={{ duty.day }}|{{ duty.track_session }}" class="btn btn-primary btn-sm">Go to Evaluations →</a>
+        <a href="{% url 'faculty_evaluations' %}?track={{ item.track_key|urlencode }}" class="btn btn-primary btn-sm">Go to Evaluations →</a>
     </div>
     {% endwith %}
     {% endfor %}

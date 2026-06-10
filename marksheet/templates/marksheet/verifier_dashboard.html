@@ -41,7 +41,7 @@
         {% if item.locked_at %}
         <p class="lock-time">Locked: {{ item.locked_at|date:"d M Y, H:i" }}</p>
         {% endif %}
-        <a href="{% url 'verifier_evaluations' %}?track={{ duty.day }}|{{ duty.track_session }}" class="btn btn-gold btn-sm">Verify Marks →</a>
+        <a href="{% url 'verifier_evaluations' %}?track={{ item.track_key|urlencode }}" class="btn btn-gold btn-sm">Verify Marks →</a>
     </div>
     {% endwith %}
     {% endfor %}
