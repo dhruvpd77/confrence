@@ -212,11 +212,12 @@ def get_moderator2_profiles(schedule):
 
 
 def get_faculty_track_keys(profile, schedule=None, day=None):
-    keys = set()
-    for item in get_faculty_duties(profile, schedule=schedule, day=day):
-        duty = item['duty']
-        keys.add((duty.day, duty.track_session))
-    return keys
+    from marksheet.utils.track_keys import duty_track_key
+
+    return {
+        duty_track_key(item['duty'])
+        for item in get_faculty_duties(profile, schedule=schedule, day=day)
+    }
 
 
 def generate_credentials_workbook(profiles):

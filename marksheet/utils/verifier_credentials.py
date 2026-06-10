@@ -70,11 +70,12 @@ def get_verifier_duties(profile, schedule=None, day=None):
 
 
 def get_verifier_track_keys(profile, schedule=None, day=None):
-    keys = set()
-    for item in get_verifier_duties(profile, schedule=schedule, day=day):
-        duty = item['duty']
-        keys.add((duty.day, duty.track_session))
-    return keys
+    from marksheet.utils.track_keys import duty_track_key
+
+    return {
+        duty_track_key(item['duty'])
+        for item in get_verifier_duties(profile, schedule=schedule, day=day)
+    }
 
 
 def get_verifier_profiles(schedule):
@@ -94,7 +95,7 @@ def get_track_verifier_contact(schedule, day, track_session, track_name=None):
         track_session=track_session,
     ).exclude(verifier='')
     if track_name:
-        duty = duties.filter(track_name=track_name).first() or duties.first()
+        duty = duties.filter(track_name=track_name).first()
     else:
         duty = duties.first()
     if not duty:
